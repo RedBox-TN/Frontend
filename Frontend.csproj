@@ -28,4 +28,8 @@
         <Protobuf Include="Protos\shared.proto" GrpcServices="None"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove=".gitignore" />
+    </ItemGroup>
+
 </Project>
