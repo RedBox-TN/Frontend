@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package redbox_authentication;
+
+option csharp_namespace = "RedBoxAuthentication";
+
+import "google/protobuf/empty.proto";
+
+import "shared.proto";
+
+enum LoginStatus {
+  INVALID_CREDENTIALS = 0;
+  MISSING_PARAMETER = 1;
+  ALREADY_LOGGED = 2;
+  USER_NOT_EXIST = 3;
+  LOGIN_SUCCESS = 4;
+  REQUIRE_2FA = 5;
+  IS_BLOCKED = 6;
+}
+
+enum TwoFactorResponseCode {
+  VALID_CODE = 0;
+  INVALID_CODE = 1;
+  USER_NOT_LOGGED = 2;
+  TFA_NOT_ENABLED = 3;
+  ALREADY_VERIFIED = 4;
+}
+
+message LoginRequest {
+  string password = 1;
+  oneof identifier {
+    string username = 2;
+    string email = 3;
+  }
+}
+
+message LoginResponse {
+  LoginStatus status = 1;
+  optional string token = 2;
+  optional int64 expiresAt = 3;
+  optional uint32 attempts_left = 4;
+}
+
+message TwoFactorRequest {
+  string two_fa_code = 1;
+  string token = 2;
+}
+
+message TwoFactorResponse {
+  TwoFactorResponseCode code = 1;
+  optional int64 tokenExpiresAt = 2;
+}
+
+message TokenRefreshResponse {
+  string Token = 1;
+  int64 expiresAt = 2;
+}
+
+message PasswordResetRequest {
+  oneof identifier {
+    string email_address = 1;
+    string username = 2;
+  }
+}
+
+service AuthenticationGrpcService {
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc Logout (google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Verify2FA(TwoFactorRequest) returns (TwoFactorResponse);
+  rpc RefreshToken(google.protobuf.Empty) returns (TokenRefreshResponse);
+  rpc ForgottenPassword(PasswordResetRequest) returns (shared.Result);
+}
