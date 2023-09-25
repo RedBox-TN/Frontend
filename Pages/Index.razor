@@ -1,3 +1,30 @@
 ﻿@page "/"
+@using RedBoxAuthentication
+@using Grpc.Core
+@using Frontend.Client_Utility
+@inject AuthenticationGrpcService.AuthenticationGrpcServiceClient authApi
+@inject ClientUtility ClientUtility
 
 <h1>Hello, world!</h1>
+<button @onclick="Api">request</button>
+Token: @_token <br/>
+Status: @_status <br/>
+
+@code {
+    string? _token;
+    string _status;
+    async Task Api()
+    {
+        var req = new LoginRequest
+        {
+            Username = "frontuser",
+            Password = "159357mlrs3hop"
+        };
+        var h = new Metadata();
+        var res = await authApi.LoginAsync(req);
+        _token = res.Token;
+        _status = res.Status.ToString();
+        ClientUtility.SetAuthToken(_token);
+    }
+
+}
