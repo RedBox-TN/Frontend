@@ -10,29 +10,39 @@ public class TokenRefresh
 {
     private readonly AuthenticationGrpcService.AuthenticationGrpcServiceClient _apiAuth;
     private readonly ClientUtility _clientUtility;
-    private Timer? _timer;
+    private Task? _tokenTask;
 
     public TokenRefresh(AuthenticationGrpcService.AuthenticationGrpcServiceClient apiAuth, ClientUtility clientUtility)
     {
         _apiAuth = apiAuth;
         _clientUtility = clientUtility;
     }
-    
-    public async Task RefreshTimer(long expiry)
+
+    private async Task RefreshTokenTask(TokenRefreshResponse token)
     {
-        _timer = new Timer();
-        _timer.Interval = expiry;
-        _timer.Elapsed += RefreshToken;
-        _timer.Start();
+        while (true)
+        {
+            Console.WriteLine(token.Token);
+            Console.WriteLine(token.ExpiresAt);
+            Console.WriteLine(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            await Task.Delay((int)(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds() - 60000));
+            token =  _apiAuth.RefreshToken(new Empty());
+            _clientUtility.SetAuthToken(token.Token);
+        }
     }
 
-    private async void RefreshToken(object? sender, ElapsedEventArgs e)
+    public Task RefreshToken(TokenRefreshResponse token)
     {
-        var token = await _apiAuth.RefreshTokenAsync(new Empty());
-        _clientUtility.SetAuthToken(token.Token);
-        Console.WriteLine(token.Token);
-        Console.WriteLine(token.ExpiresAt);
-        _timer?.Dispose();   
-        await RefreshTimer(3000);
+        if (_tokenTask == null)
+        {
+            Console.WriteLine("Task null");
+            _tokenTask = Task.Run(() => RefreshTokenTask(token));
+        }
+        else
+        {
+            Console.WriteLine("Task already running");
+        }
+
+        return Task.CompletedTask;
     }
 }
