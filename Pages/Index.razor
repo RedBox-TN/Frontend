@@ -7,24 +7,56 @@
 @inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
 @inject ClientUtility ClientUtility
 
-<EditForm Model="@_userModel" OnValidSubmit="@Login">
-    <DataAnnotationsValidator/>
-    <div class="form-group">
-        <label for="username">Username</label>
-        <InputText id="username" @bind-Value="_userModel.UsernameEmail" class="form-control"/>
-        <ValidationMessage For="() => _userModel.UsernameEmail"/>
-    </div>
-    <div class="form-group">
-        <label for="password">Password</label>
-        <InputText id="password" @bind-Value="_userModel.Password" class="form-control"/>
-        <ValidationMessage For="() => _userModel.Password"/>
-    </div>
-    <button type="submit" class="ui button">Submit</button>
-</EditForm>
+<head>
+    <style type="text/css">
+        body {
+          background-color: #DADADA;
+        }
+        body > .grid {
+          height: 100%;
+        }
+        .image {
+          margin-top: -100px;
+        }
+        .column {
+          max-width: 450px;
+        }
+      </style>px
+</head>
 
-<p>
-    Status: @_status
-</p>
+<div class="ui container center aligned middle aligned grid">
+    <div class="column">        
+        <h2 class="ui image header">
+            <img src="Assets/logo.jpg" class="image" alt="error">
+            <div class="content">
+                Benvenuto in <span class="ui red text">RedBox</span>
+            </div>
+        </h2>
+        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form"> 
+        <DataAnnotationsValidator/>
+        <div class="ui stacked segment">
+            <div class="field">
+                <div class="ui input left icon">
+                    <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
+                    <i class="user icon"></i>
+                    <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
+                </div>
+            </div>
+            <div class="field">
+                <div class="ui input left icon">
+                    <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
+                    <i class="key icon"></i>
+                    <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
+                </div>
+                </div>
+            <button type="submit" class="ui fluid large red submit button">Submit</button>
+        </div>
+    </EditForm>
+    <p>
+        Status: @_status
+    </p>
+    </div>
+</div>
 
 @code {
 
