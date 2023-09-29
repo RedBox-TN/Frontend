@@ -33,5 +33,10 @@
     <ItemGroup>
         <None Remove=".gitignore"/>
     </ItemGroup>
+    
+    <Target Name="PostBuild" AfterTargets="Build">
+        <Exec Command="pnpm update fomantic-ui" WorkingDirectory="$(ProjectDir)"/>
+        <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.css wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
+    </Target>
 
 </Project>
