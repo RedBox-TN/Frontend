@@ -4,13 +4,18 @@
 @using RedBoxAuthentication
 @using Frontend.Client_Utility
 @using System.Text.RegularExpressions
+@using Grpc.Core
+@using Status = Shared.Status
+@using System.Diagnostics
+@using Frontend.Token_Utility
 @inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
 @inject ClientUtility ClientUtility
+@inject TokenRefresh TokenRefresh
 
 <head>
     <style type="text/css">
         body {
-          background-color: #DADADA;
+          background-color: #F8F7F6;
         }
         body > .grid {
           height: 100%;
@@ -21,7 +26,7 @@
         .column {
           max-width: 450px;
         }
-      </style>px
+      </style>
 </head>
 
 <div class="ui container center aligned middle aligned grid">
@@ -32,36 +37,38 @@
                 Benvenuto in <span class="ui red text">RedBox</span>
             </div>
         </h2>
-        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form"> 
-        <DataAnnotationsValidator/>
-        <div class="ui stacked segment">
-            <div class="field">
-                <div class="ui input left icon">
-                    <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
-                    <i class="user icon"></i>
-                    <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
+        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form" > 
+            <DataAnnotationsValidator/>
+            <div class="ui stacked segment">
+                <div class="field">
+                    <div class="ui input left icon">
+                        <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
+                        <i class="user icon"></i>
+                        <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
+                    </div>
                 </div>
+                <div class="field">
+                    <div class="ui input left icon">
+                        <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
+                        <i class="key icon"></i>
+                        <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
+                    </div>
+                </div>
+                <button type="submit" class="ui fluid large red submit button">Submit</button>
             </div>
-            <div class="field">
-                <div class="ui input left icon">
-                    <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
-                    <i class="key icon"></i>
-                    <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
-                </div>
-                </div>
-            <button type="submit" class="ui fluid large red submit button">Submit</button>
-        </div>
-    </EditForm>
-    <p>
-        Status: @_status
-    </p>
+        </EditForm>
+        <p>
+            Status: @_status
+        </p>
     </div>
 </div>
+
+<button @onclick="Test">Test</button>
 
 @code {
 
     string? _token;
-    string? _status;
+    LoginStatus _status;
 
     readonly User _userModel = new User
     {
@@ -91,8 +98,16 @@
 
         var res = await AuthApi.LoginAsync(request);
         _token = res.Token;
-        _status = res.Status.ToString();
-        if (!string.IsNullOrEmpty(_token)) ClientUtility.SetAuthToken(_token);
+        _status = res.Status;
+        if (_status == LoginStatus.LoginSuccess)
+        {
+            ClientUtility.SetAuthToken(_token);
+        }
     }
 
+    private async Task Test()
+    {
+        await TokenRefresh.RefreshTimer(3000);
+    }
+    
 }
