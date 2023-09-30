@@ -12,10 +12,9 @@ enum LoginStatus {
   INVALID_CREDENTIALS = 0;
   MISSING_PARAMETER = 1;
   ALREADY_LOGGED = 2;
-  USER_NOT_EXIST = 3;
-  LOGIN_SUCCESS = 4;
-  REQUIRE_2FA = 5;
-  IS_BLOCKED = 6;
+  LOGIN_SUCCESS = 3;
+  REQUIRE_2FA = 4;
+  IS_BLOCKED = 5;
 }
 
 enum TwoFactorResponseCode {

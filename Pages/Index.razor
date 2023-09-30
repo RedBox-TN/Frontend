@@ -1,3 +1,111 @@
 ﻿@page "/"
+@using Frontend.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using RedBoxAuthentication
+@using Frontend.Client_Utility
+@using System.Text.RegularExpressions
+@using Frontend.Token_Utility
+@inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
+@inject ClientUtility ClientUtility
+@inject TokenRefresh TokenRefresh
 
-<h1>Hello, world!</h1>
+<head>
+    <style type="text/css">
+        body {
+          background-color: #F8F7F6;
+        }
+        body > .grid {
+          height: 100%;
+        }
+        .image {
+          margin-top: -100px;
+        }
+        .column {
+          max-width: 450px;
+        }
+      </style>
+</head>
+
+<div class="ui container center aligned middle aligned grid">
+    <div class="column">        
+        <h2 class="ui image header">
+            <img src="Assets/logo.jpg" class="image" alt="error">
+            <div class="content">
+                Benvenuto in <span class="ui red text">RedBox</span>
+            </div>
+        </h2>
+        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form" > 
+            <DataAnnotationsValidator/>
+            <div class="ui stacked segment">
+                <div class="field">
+                    <div class="ui input left icon">
+                        <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
+                        <i class="user icon"></i>
+                        <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui input left icon">
+                        <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
+                        <i class="key icon"></i>
+                        <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
+                    </div>
+                </div>
+                <button type="submit" class="ui fluid large red submit button">Submit</button>
+            </div>
+        </EditForm>
+        <p>
+            Status: @_status
+        </p>
+    </div>
+</div>
+
+@inject NavigationManager NavigationManager
+@code {
+
+    string? _token;
+    string? _status;
+    long _expiresAt;
+
+    readonly User _userModel = new User
+    {
+        UsernameEmail = null,
+        Password = null
+    };
+
+    private async Task Login()
+    {
+        LoginRequest request;
+        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userModel.UsernameEmail))
+        {
+            request = new LoginRequest
+            {
+                Email = _userModel.UsernameEmail,
+                Password = _userModel.Password
+            };
+        }
+        else
+        {
+            request = new LoginRequest
+            {
+                Username = _userModel.UsernameEmail,
+                Password = _userModel.Password
+            };
+        }
+
+        var res = await AuthApi.LoginAsync(request);
+        _token = res.Token;
+        _status = res.Status.ToString();
+        _expiresAt = res.ExpiresAt;
+        if (res.Status == LoginStatus.LoginSuccess)
+        {
+            ClientUtility.SetAuthToken(_token);
+            await TokenRefresh.RefreshToken(new TokenRefreshResponse
+            {
+                Token = _token,
+                ExpiresAt = _expiresAt
+            });
+            NavigationManager.NavigateTo("/Messages");
+        }
+    }
+}
