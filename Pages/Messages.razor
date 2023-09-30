@@ -1,0 +1,15 @@
+@page "/Messages"
+@using Frontend.Client_Utility
+@inject ClientUtility ClientUtility
+<h3>Messages</h3>
+
+@inject NavigationManager NavigationManager
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!ClientUtility.IsLoggedIn())
+            NavigationManager.NavigateTo("/");
+    }
+
+}

@@ -60,6 +60,7 @@
     </div>
 </div>
 
+@inject NavigationManager NavigationManager
 @code {
 
     string? _token;
@@ -104,6 +105,7 @@
                 Token = _token,
                 ExpiresAt = _expiresAt
             });
+            NavigationManager.NavigateTo("/Messages");
         }
     }
 }

@@ -18,6 +18,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="7.0.11"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.11"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.11" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="7.0.0" />
     </ItemGroup>
 
     <ItemGroup>
@@ -33,6 +34,12 @@
     <ItemGroup>
         <None Remove=".gitignore"/>
         <None Include="wwwroot\Assets\logo.jpg" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Update="wwwroot\appsettings.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
     
     <Target Name="PostBuild" AfterTargets="Build">
