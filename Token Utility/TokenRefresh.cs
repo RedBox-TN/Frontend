@@ -1,8 +1,6 @@
-using System.Timers;
 using Frontend.Client_Utility;
 using Google.Protobuf.WellKnownTypes;
 using RedBoxAuthentication;
-using Timer = System.Timers.Timer;
 
 namespace Frontend.Token_Utility;
 
@@ -26,7 +24,7 @@ public class TokenRefresh
             Console.WriteLine(token.ExpiresAt);
             Console.WriteLine(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds());
             await Task.Delay((int)(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds() - 60000));
-            token =  _apiAuth.RefreshToken(new Empty());
+            token = _apiAuth.RefreshToken(new Empty());
             _clientUtility.SetAuthToken(token.Token);
         }
     }

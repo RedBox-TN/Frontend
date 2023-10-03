@@ -1,15 +1,57 @@
 @page "/Messages"
+@using RedBoxServices
+@using Shared
 @using Frontend.Client_Utility
+@using Google.Protobuf.WellKnownTypes
 @inject ClientUtility ClientUtility
-<h3>Messages</h3>
+@inject GrpcAccountServices.GrpcAccountServicesClient UserService
+@inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
+
+<button @onclick="FetchUsers">GetUsers</button>
+
+@if (_user is not null)
+{
+    @foreach (var u in _user.User)
+    {
+        <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
+    }
+}
 
 @inject NavigationManager NavigationManager
+
 @code {
+    GrpcUserResults? _user = new();
+    readonly List<string> _userList = new();
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         if (!ClientUtility.IsLoggedIn())
             NavigationManager.NavigateTo("/");
+    }
+
+    private async Task FetchUsers()
+    {
+        _user = await UserService.FetchAllUsersAsync(new Empty());
+    }
+
+    private Task AddUser(GrpcUser u)
+    {
+        _userList.Add(u.Id);
+        _user?.User.Remove(u);
+        return Task.CompletedTask;
+    }
+
+    private async Task CreateChat()
+    {
+        foreach (var id in _userList)
+        {
+            var req = new StringMessage
+            {
+                Value = id
+            };
+            var res = await ConversationServices.CreateChatAsync(req);
+        }
     }
 
 }

@@ -1,21 +1,21 @@
 ﻿@page "/"
 @using Frontend.Models
+@using Frontend.Token_Utility
 @using Microsoft.AspNetCore.Components.Forms
 @using RedBoxAuthentication
 @using Frontend.Client_Utility
 @using System.Text.RegularExpressions
-@using Frontend.Token_Utility
 @inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
 @inject ClientUtility ClientUtility
 @inject TokenRefresh TokenRefresh
 
 <head>
+    <title>
+        Login
+    </title>
     <style type="text/css">
         body {
           background-color: #F8F7F6;
-        }
-        body > .grid {
-          height: 100%;
         }
         .image {
           margin-top: -100px;
@@ -26,48 +26,46 @@
       </style>
 </head>
 
-<div class="ui container center aligned middle aligned grid">
-    <div class="column">        
-        <h2 class="ui image header">
-            <img src="Assets/logo.jpg" class="image" alt="error">
-            <div class="content">
-                Benvenuto in <span class="ui red text">RedBox</span>
-            </div>
-        </h2>
-        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form" > 
-            <DataAnnotationsValidator/>
-            <div class="ui stacked segment">
-                <div class="field">
-                    <div class="ui input left icon">
-                        <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
-                        <i class="user icon"></i>
-                        <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
-                    </div>
+<div class="ui grid center aligned middle aligned" style="height: 100vh">
+        <div class="column">
+            <h2 class="ui image header">
+                <img src="Assets/logo.jpg" class="image" alt="error">
+                <div class="content">
+                    Benvenuto in <span class="ui red text">RedBox</span>
                 </div>
-                <div class="field">
-                    <div class="ui input left icon">
-                        <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
-                        <i class="key icon"></i>
-                        <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
+            </h2>
+            <EditForm Model="@_userLoginModel" OnValidSubmit="@Login" class="ui large form">
+                <DataAnnotationsValidator/>
+                <div class="ui stacked segment">
+                    <div class="field">
+                        <div class="ui input left icon">
+                            <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username"/>
+                            <i class="user icon"></i>
+                        </div>
+                        <ValidationMessage For="() => _userLoginModel.UsernameEmail" class="ui red text error"/>
                     </div>
+                    <div class="field">
+                        <div class="ui input left icon">
+                            <InputText type="password" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
+                            <i class="key icon"></i>
+                        </div>
+                        <ValidationMessage For="() => _userLoginModel.Password" class="ui red text error"/>
+                    </div>
+                    <button type="submit" class="ui fluid large red submit button">Login</button>
                 </div>
-                <button type="submit" class="ui fluid large red submit button">Submit</button>
-            </div>
-        </EditForm>
-        <p>
-            Status: @_status
-        </p>
-    </div>
+            </EditForm>
+        </div>
 </div>
 
 @inject NavigationManager NavigationManager
+
 @code {
 
     string? _token;
     string? _status;
     long _expiresAt;
 
-    readonly User _userModel = new User
+    readonly UserLogin _userLoginModel = new()
     {
         UsernameEmail = null,
         Password = null
@@ -76,20 +74,20 @@
     private async Task Login()
     {
         LoginRequest request;
-        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userModel.UsernameEmail))
+        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userLoginModel.UsernameEmail))
         {
             request = new LoginRequest
             {
-                Email = _userModel.UsernameEmail,
-                Password = _userModel.Password
+                Email = _userLoginModel.UsernameEmail,
+                Password = _userLoginModel.Password
             };
         }
         else
         {
             request = new LoginRequest
             {
-                Username = _userModel.UsernameEmail,
-                Password = _userModel.Password
+                Username = _userLoginModel.UsernameEmail,
+                Password = _userLoginModel.Password
             };
         }
 
@@ -108,4 +106,5 @@
             NavigationManager.NavigateTo("/Messages");
         }
     }
+
 }

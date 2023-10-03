@@ -18,30 +18,28 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="7.0.11"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.11"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.11" PrivateAssets="all"/>
-        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="7.0.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="Protos\"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="7.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
         <Protobuf Include="Protos\keychain.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
         <Protobuf Include="Protos\authentication.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
+        <Protobuf Include="Protos\conversation.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
+        <Protobuf Include="Protos\user.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
         <Protobuf Include="Protos\shared.proto" GrpcServices="None"/>
     </ItemGroup>
 
     <ItemGroup>
         <None Remove=".gitignore"/>
-        <None Include="wwwroot\Assets\logo.jpg" />
+        <None Include="wwwroot\Assets\logo.jpg"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Content Update="wwwroot\appsettings.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+        <Content Update="wwwroot\appsettings.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
-    
+
     <Target Name="PostBuild" AfterTargets="Build">
         <Exec Command="pnpm update fomantic-ui" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.css wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>

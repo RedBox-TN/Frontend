@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Frontend.Models;
 
-public class User
+public class UserLogin
 {
     [Required(ErrorMessage = "Campo Obbligatorio")]
     public required string? UsernameEmail { get; set; }
