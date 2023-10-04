@@ -17,23 +17,15 @@
         body {
           background-color: #F8F7F6;
         }
-        .image {
-          margin-top: -100px;
-        }
-        .column {
-          max-width: 450px;
-        }
       </style>
 </head>
 
-<div class="ui grid center aligned middle aligned" style="height: 100vh">
-        <div class="column">
-            <h2 class="ui image header">
-                <img src="Assets/logo.jpg" class="image" alt="error">
-                <div class="content">
-                    Benvenuto in <span class="ui red text">RedBox</span>
-                </div>
-            </h2>
+<div class="ui two column grid center aligned middle aligned" style="height: 100vh">
+    <div class="column">
+        <div class="ui container" style="max-width: 450px">
+            <div class="ui header">
+                Effettua l'accesso
+            </div>
             <EditForm Model="@_userLoginModel" OnValidSubmit="@Login" class="ui large form">
                 <DataAnnotationsValidator/>
                 <div class="ui stacked segment">
@@ -55,6 +47,18 @@
                 </div>
             </EditForm>
         </div>
+    </div>
+    <div class="column">
+        <div class="ui center aligned image">
+            <h1 class="ui header">
+                <div class="content">
+                    Benvenuto in <br/>
+                    <span class="ui red text">RedBox</span>
+                </div>
+            </h1>
+            <img src="Assets/logo.jpg" class="ui image" alt="error">
+        </div>
+    </div>
 </div>
 
 @inject NavigationManager NavigationManager

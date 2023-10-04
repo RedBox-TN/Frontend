@@ -43,6 +43,7 @@
     <Target Name="PostBuild" AfterTargets="Build">
         <Exec Command="pnpm update fomantic-ui" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.css wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
+        <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.js wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp -r node_modules/fomantic-ui/dist/themes/ wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
     </Target>
 

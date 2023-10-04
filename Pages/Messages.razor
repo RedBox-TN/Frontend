@@ -7,15 +7,49 @@
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
 
-<button @onclick="FetchUsers">GetUsers</button>
+<head>
+    <title>Messages</title>
+    <script>
+        $(document).ready(function () {
+            // Inizializza il menu tabulato
+            $('.menu .item').tab();
+        });
+    </script>
+</head>
 
-@if (_user is not null)
-{
-    @foreach (var u in _user.User)
-    {
-        <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
-    }
-}
+<div class="ui top attached tabular menu">
+    <a class="active item" data-tab="d1">
+        Home
+    </a>
+    <a class="item" data-tab="d2">
+        Nuova Chat
+    </a>
+    <div class="right menu">
+        <div class="item">
+            <div class="ui transparent icon input">
+                <input type="text" placeholder="Search users...">
+                <i class="search link icon"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="ui bottom attached tab segment active" data-tab="d1">
+    <p>testing messages</p>
+</div>
+<div class="ui bottom attached tab segment" data-tab="d2">
+    <div class="ui search">
+        <input class="prompt" type="text" placeholder="Cerca Utenti...">
+        <div class="results">
+            @if (_user is not null)
+                {
+                    @foreach (var u in _user.User)
+                    {
+                        <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
+                    }
+                }
+        </div>
+    </div>
+</div>
 
 @inject NavigationManager NavigationManager
 
@@ -26,8 +60,8 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        if (!ClientUtility.IsLoggedIn())
-            NavigationManager.NavigateTo("/");
+    //if (!ClientUtility.IsLoggedIn())
+    //    NavigationManager.NavigateTo("/");
     }
 
     private async Task FetchUsers()
