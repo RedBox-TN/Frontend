@@ -34,21 +34,29 @@
     </div>
 </div>
 <div class="ui bottom attached tab segment active" data-tab="d1">
-    <p>testing messages</p>
+    <button @onclick="GetChats">Get Chats</button>
+    <div class="results">
+        @if (_chats is not null)
+        {
+            @foreach (var c in _chats.Chats)
+            {
+                <p id="@c.Id">@c.Members[0]</p>
+            }
+        }
+    </div>
 </div>
 <div class="ui bottom attached tab segment" data-tab="d2">
-    <div class="ui search">
-        <input class="prompt" type="text" placeholder="Cerca Utenti...">
-        <div class="results">
-            @if (_user is not null)
-                {
-                    @foreach (var u in _user.User)
-                    {
-                        <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
-                    }
-                }
-        </div>
+    <div>
+        @if (_user is not null)
+        {
+            @foreach (var u in _user.User)
+            {
+                <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
+            }
+        }
     </div>
+    <button @onclick="FetchUsers" class="ui button">Fetch Users</button>
+    <button @onclick="CreateChat" class="ui button">Create Chat</button>
 </div>
 
 @inject NavigationManager NavigationManager
@@ -56,12 +64,14 @@
 @code {
     GrpcUserResults? _user = new();
     readonly List<string> _userList = new();
+    ChatsResponse? _chats = new();
+    readonly List<GrpcChat> _chatsList = new();
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-    //if (!ClientUtility.IsLoggedIn())
-    //    NavigationManager.NavigateTo("/");
+        if (!ClientUtility.IsLoggedIn())
+            NavigationManager.NavigateTo("/");
     }
 
     private async Task FetchUsers()
@@ -86,6 +96,11 @@
             };
             var res = await ConversationServices.CreateChatAsync(req);
         }
+    }
+
+    private async Task GetChats()
+    {
+        _chats = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
     }
 
 }
