@@ -77,7 +77,7 @@ else if (_showNoUserFound && _users.Count == 0)
                 @foreach (var u in _users)
                 {
                     <div class="item" @onclick="() => CreateChat(u.Id)">
-                        <i class="user circle outline icon"></i>
+                        <i class="huge user circle outline icon"></i>
                         <div class="content">
                             <a class="header">@u.Name @u.Surname</a>
                             <div class="description">
