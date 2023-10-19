@@ -16,15 +16,12 @@ public class TokenRefresh
 		_clientUtility = clientUtility;
 	}
 
-	private async Task RefreshTokenTask(TokenRefreshResponse token)
+	private async Task RefreshTokenTask(TokenRefreshResponse token, CancellationToken ct = default)
 	{
-		while (true)
+		while (!ct.IsCancellationRequested)
 		{
-			Console.WriteLine(token.Token);
-			Console.WriteLine(token.ExpiresAt);
-			Console.WriteLine(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds());
-			await Task.Delay((int)(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds() - 60000));
-			token = _apiAuth.RefreshToken(new Empty());
+			await Task.Delay((int)(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds() - 60000), ct);
+			token = _apiAuth.RefreshToken(new Empty(), cancellationToken: ct);
 			_clientUtility.SetAuthToken(token.Token);
 		}
 	}

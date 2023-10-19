@@ -1,8 +1,9 @@
 @page "/Messages"
 @using RedBoxServices
 @using Shared
-@using Frontend.Client_Utility
+@using Google.Protobuf.Collections
 @using Google.Protobuf.WellKnownTypes
+@using Frontend.Client_Utility
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -16,7 +17,26 @@
         });
     </script>
 </head>
-
+@if (_isError)
+{
+    <div class="ui negative message">
+        <div class="header">
+            @_errorTitle
+        </div>
+        <p>
+            @_errorMessage
+        </p>
+    </div>
+}
+else if (_showNoUserFound && _users.Count == 0)
+{
+    <div class="ui info message">
+        <div class="header">
+            Non ci sono utenti con cui iniziare una conversazione
+        </div>
+        Aspetta che nuovi utenti vengano aggiunti all'applicazione
+    </div>
+}
 <div class="ui top attached tabular menu">
     <a class="active item" data-tab="d1">
         Home
@@ -43,31 +63,41 @@
                 <p id="@c.Id">@c.Members[0]</p>
             }
         }
+        else
+        {
+            _showNoUserFound = true;
+        }
     </div>
 </div>
 <div class="ui bottom attached tab segment" data-tab="d2">
     <div>
-        @if (_user.Users.Count > 0)
-        {
-            @foreach (var u in _user.Users)
+        <div class="ui list">
+            @if (_users.Count > 0)
             {
-                <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
+                @foreach (var u in _users)
+                {
+                    <div class="item" @onclick="() => CreateChat(u.Id)">
+                        <i class="user circle outline icon"></i>
+                        <div class="content">
+                            <a class="header">@u.Name @u.Surname</a>
+                            <div class="description">
+                                <p>Username: @u.Username</p>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
-        }
-        else
-        {
-            <h1>Non ci sono utenti con cui creare una chat</h1>
-        }
+        </div>
     </div>
     <button @onclick="FetchUsers" class="ui button">Fetch Users</button>
-    <button @onclick="CreateChat" class="ui button">Create Chat</button>
 </div>
 
 @inject NavigationManager NavigationManager
 
 @code {
-    AvailableUsersResponse _user = new();
-    readonly List<string> _userList = new();
+    bool _isError, _showNoUserFound;
+    string _errorTitle, _errorMessage;
+    RepeatedField<UserInfo> _users = new();
     ChatsResponse? _chats = new();
     readonly List<GrpcChat> _chatsList = new();
 
@@ -80,24 +110,58 @@
 
     private async Task FetchUsers()
     {
-        _user = await ConversationServices.GetUsersForConversationAsync(new Empty());
+        var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                _users = response.Users;
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Errore del backend";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Paramentri mancanti";
+                _errorMessage = "la richiesta inviata è incompleta";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Messaggio troppo pesante";
+                _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Paramentri invalidi";
+                _errorMessage = "la richiesta inviata contine parametri invalidi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
     }
 
-    private Task AddUser(UserInfo u)
+    private async Task CreateChat(string userId)
     {
-        _userList.Add(u.Id);
-        _user.Users.Remove(u);
-        return Task.CompletedTask;
-    }
+        var response = await ConversationServices.CreateChatAsync(new StringMessage
+        {
+            Value = userId
+        });
 
-    private async Task CreateChat()
-    {
-        foreach (var req in _userList.Select(id => new StringMessage
+        switch (response.Result.Status)
         {
-            Value = id
-        }))
-        {
-            var res = await ConversationServices.CreateChatAsync(req);
+            case Status.Ok:
+                break;
+            case Status.Error:
+                break;
+            case Status.MissingParameters:
+                break;
+            case Status.AttachmentTooBig:
+                break;
+            case Status.InvalidParameter:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
