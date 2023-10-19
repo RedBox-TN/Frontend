@@ -29,7 +29,18 @@
             </div>
             <EditForm Model="@_userLoginModel" OnValidSubmit="@Login" class="ui large form">
                 <DataAnnotationsValidator/>
-                <div class="ui stacked segment">
+                <div class="ui segment">
+                    @if (_showError)
+                    {
+                        <div class="ui negative message">
+                            <div class="header">
+                                Impossibile effettuare il login
+                            </div>
+                            <p>
+                                @_errorMessage
+                            </p>
+                        </div>
+                    }
                     <div class="field">
                         <div class="ui input left icon">
                             <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username"/>
@@ -44,7 +55,17 @@
                         </div>
                         <ValidationMessage For="() => _userLoginModel.Password" class="ui red text error"/>
                     </div>
-                    <button type="submit" class="ui fluid large red submit button">Login</button>
+                    <button type="submit" class="ui fluid large icon red submit button">
+                        @if (_isLogging)
+                        {
+                            <i class="loading spinner icon"></i>
+                        }
+                        else
+                        {
+                            const string m = "Login";
+                            @m
+                        }
+                    </button>
                 </div>
             </EditForm>
         </div>
@@ -67,8 +88,9 @@
 @code {
 
     string? _token;
-    string? _status;
     long _expiresAt;
+    bool _showError, _isLogging;
+    string _errorMessage = string.Empty;
 
     readonly UserLogin _userLoginModel = new()
     {
@@ -78,6 +100,7 @@
 
     private async Task Login()
     {
+        _isLogging = true;
         LoginRequest request;
         if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userLoginModel.UsernameEmail))
         {
@@ -96,19 +119,40 @@
             };
         }
 
-        var res = await AuthApi.LoginAsync(request);
-        _token = res.Token;
-        _status = res.Status.ToString();
-        _expiresAt = res.ExpiresAt;
-        if (res.Status == LoginStatus.LoginSuccess)
+        var response = await AuthApi.LoginAsync(request);
+        _isLogging = false;
+        _token = response.Token;
+        _expiresAt = response.ExpiresAt;
+        switch (response.Status)
         {
-            ClientUtility.SetAuthToken(_token);
-            await TokenRefresh.RefreshToken(new TokenRefreshResponse
-            {
-                Token = _token,
-                ExpiresAt = _expiresAt
-            });
-            NavigationManager.NavigateTo("/Messages");
+            case LoginStatus.InvalidCredentials:
+                _errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
+                _showError = true;
+                break;
+            case LoginStatus.MissingParameter:
+                _errorMessage = "ogni campo va compilato per effettuare il login";
+                _showError = true;
+                break;
+            case LoginStatus.AlreadyLogged:
+                NavigationManager.NavigateTo("/Messages");
+                break;
+            case LoginStatus.LoginSuccess:
+                ClientUtility.SetAuthToken(_token);
+                await TokenRefresh.RefreshToken(new TokenRefreshResponse
+                {
+                    Token = _token,
+                    ExpiresAt = _expiresAt
+                });
+                NavigationManager.NavigateTo("/Messages");
+                break;
+            case LoginStatus.Require2Fa:
+                break;
+            case LoginStatus.IsBlocked:
+                _errorMessage = "l'utente è bloccato, contatta un amministratore";
+                _showError = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 

@@ -47,12 +47,16 @@
 </div>
 <div class="ui bottom attached tab segment" data-tab="d2">
     <div>
-        @if (_user is not null)
+        @if (_user.Users.Count > 0)
         {
-            @foreach (var u in _user.User)
+            @foreach (var u in _user.Users)
             {
                 <p id="@u.Id" @onclick="() => AddUser(u)" style="cursor: pointer">@u.Username</p>
             }
+        }
+        else
+        {
+            <h1>Non ci sono utenti con cui creare una chat</h1>
         }
     </div>
     <button @onclick="FetchUsers" class="ui button">Fetch Users</button>
@@ -62,7 +66,7 @@
 @inject NavigationManager NavigationManager
 
 @code {
-    GrpcUserResults? _user = new();
+    AvailableUsersResponse _user = new();
     readonly List<string> _userList = new();
     ChatsResponse? _chats = new();
     readonly List<GrpcChat> _chatsList = new();
@@ -76,24 +80,23 @@
 
     private async Task FetchUsers()
     {
-        _user = await UserService.FetchAllUsersAsync(new Empty());
+        _user = await ConversationServices.GetUsersForConversationAsync(new Empty());
     }
 
-    private Task AddUser(GrpcUser u)
+    private Task AddUser(UserInfo u)
     {
         _userList.Add(u.Id);
-        _user?.User.Remove(u);
+        _user.Users.Remove(u);
         return Task.CompletedTask;
     }
 
     private async Task CreateChat()
     {
-        foreach (var id in _userList)
+        foreach (var req in _userList.Select(id => new StringMessage
         {
-            var req = new StringMessage
-            {
-                Value = id
-            };
+            Value = id
+        }))
+        {
             var res = await ConversationServices.CreateChatAsync(req);
         }
     }

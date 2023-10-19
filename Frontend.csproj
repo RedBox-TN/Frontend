@@ -22,11 +22,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Protobuf Include="Protos\keychain.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
         <Protobuf Include="Protos\authentication.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
         <Protobuf Include="Protos\conversation.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
         <Protobuf Include="Protos\user.proto" GrpcServices="Client" AdditionalImportDirs="Protos\" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
-        <Protobuf Include="Protos\shared.proto" GrpcServices="None"/>
+        <Protobuf Include="Protos\shared.proto" GrpcServices="None" AdditionalProtocOptions="--experimental_allow_proto3_optional"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -41,7 +40,7 @@
     </ItemGroup>
 
     <Target Name="PostBuild" AfterTargets="Build">
-        <Exec Command="pnpm update fomantic-ui" WorkingDirectory="$(ProjectDir)"/>
+        <Exec Command="~/.local/share/pnpm/pnpm update fomantic-ui" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.css wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp node_modules/fomantic-ui/dist/semantic.min.js wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
         <Exec Command="cp -r node_modules/fomantic-ui/dist/themes/ wwwroot/css/" WorkingDirectory="$(ProjectDir)"/>
