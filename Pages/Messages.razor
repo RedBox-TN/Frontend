@@ -10,11 +10,11 @@
 
 <head>
     <title>Messages</title>
-    <script>
-        $(document).ready(function () {
-            // Inizializza il menu tabulato
-            $('.menu .item').tab();
-        });
+    <script suppress-error="BL9992">
+            $(document).ready(function () {
+                // Inizializza il menu tabulato
+                $('.menu .item').tab();
+            });
     </script>
 </head>
 @if (_isError)
@@ -58,10 +58,12 @@ else if (_showNoUserFound && _users.Count == 0)
     <div class="results">
         @if (_chats is not null)
         {
-            @foreach (var c in _chats.Chats)
-            {
-                <p id="@c.Id">@c.Members[0]</p>
-            }
+            <div class="ui sidebar inverted vertical menu">
+                @foreach (var c in _chats.Chats)
+                {
+                    <a class="item" id="@c.Id">@c.Members[0]</a>
+                }
+            </div>
         }
         else
         {

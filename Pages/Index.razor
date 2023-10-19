@@ -27,8 +27,7 @@
             <div class="ui header">
                 Effettua l'accesso
             </div>
-            <EditForm Model="@_userLoginModel" OnValidSubmit="@Login" class="ui large form">
-                <DataAnnotationsValidator/>
+            <EditForm Model="@_userLoginModel" OnValidSubmit="Login" class="ui large form">
                 <div class="ui segment">
                     @if (_showError)
                     {
@@ -42,18 +41,16 @@
                         </div>
                     }
                     <div class="field">
-                        <div class="ui input left icon">
+                        <div class="ui left icon input">
                             <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username"/>
                             <i class="user icon"></i>
                         </div>
-                        <ValidationMessage For="() => _userLoginModel.UsernameEmail" class="ui red text error"/>
                     </div>
                     <div class="field">
-                        <div class="ui input left icon">
-                            <InputText type="password" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
-                            <i class="key icon"></i>
+                        <div class="ui left icon input">
+                            <InputText @ref="_passwordRef" type="@_txtType" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
+                            <i class="@_keyIcon" @onclick="ShowPassword" ></i>
                         </div>
-                        <ValidationMessage For="() => _userLoginModel.Password" class="ui red text error"/>
                     </div>
                     <button type="submit" class="ui fluid large icon red submit button">
                         @if (_isLogging)
@@ -91,6 +88,25 @@
     long _expiresAt;
     bool _showError, _isLogging;
     string _errorMessage = string.Empty;
+    string _txtType = "password";
+    string _keyIcon = "red key link icon";
+    InputText? _passwordRef;
+
+    public void ShowPassword()
+    {
+        if (_txtType == "password")
+        {
+            _txtType = "text";
+            _keyIcon = "key link icon";
+            _passwordRef!.Element!.Value.FocusAsync();
+        }
+        else
+        {
+            _txtType = "password";
+            _keyIcon = "red key link icon";
+            _passwordRef!.Element!.Value.FocusAsync();
+        }
+    }
 
     readonly UserLogin _userLoginModel = new()
     {
