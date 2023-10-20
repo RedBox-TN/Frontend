@@ -28,7 +28,7 @@
         </p>
     </div>
 }
-else if (_showNoUserFound && _users.Count == 0)
+else if (_showNoUserFound)
 {
     <div class="ui info message">
         <div class="header">
@@ -65,13 +65,9 @@ else if (_showNoUserFound && _users.Count == 0)
                 }
             </div>
         }
-        else
-        {
-            _showNoUserFound = true;
-        }
     </div>
 </div>
-<div class="ui bottom attached tab segment" data-tab="d2">
+<div class="ui bottom attached tab segment" data-tab="d2" @onclick="FetchUsers">
     <div>
         <div class="ui list">
             @if (_users.Count > 0)
@@ -89,9 +85,12 @@ else if (_showNoUserFound && _users.Count == 0)
                     </div>
                 }
             }
+            else
+            {
+                _showNoUserFound = true;
+            }
         </div>
     </div>
-    <button @onclick="FetchUsers" class="ui button">Fetch Users</button>
 </div>
 
 @inject NavigationManager NavigationManager
