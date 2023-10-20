@@ -1,9 +1,8 @@
 @page "/Messages"
 @using RedBoxServices
 @using Shared
-@using Google.Protobuf.Collections
-@using Google.Protobuf.WellKnownTypes
 @using Frontend.Client_Utility
+@using Google.Protobuf.WellKnownTypes
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -20,6 +19,7 @@
 @if (_isError)
 {
     <div class="ui negative message">
+        <i class="close icon"></i>
         <div class="header">
             @_errorTitle
         </div>
@@ -31,6 +31,7 @@
 else if (_showNoUserFound)
 {
     <div class="ui info message">
+        <i class="close icon"></i>
         <div class="header">
             Non ci sono utenti con cui iniziare una conversazione
         </div>
@@ -41,7 +42,7 @@ else if (_showNoUserFound)
     <a class="active item" data-tab="d1">
         Home
     </a>
-    <a class="item" data-tab="d2">
+    <a class="item" data-tab="d2" @onclick="FetchUsers">
         Nuova Chat
     </a>
     <div class="right menu">
@@ -56,38 +57,28 @@ else if (_showNoUserFound)
 <div class="ui bottom attached tab segment active" data-tab="d1">
     <button @onclick="GetChats">Get Chats</button>
     <div class="results">
-        @if (_chats is not null)
-        {
-            <div class="ui sidebar inverted vertical menu">
-                @foreach (var c in _chats.Chats)
-                {
-                    <a class="item" id="@c.Id">@c.Members[0]</a>
-                }
-            </div>
-        }
+        <div class="ui sidebar inverted vertical menu">
+            @foreach (var c in _foundChats)
+            {
+                <a class="item" id="@c.Id">@c.Members[0]</a>
+            }
+        </div>
     </div>
 </div>
-<div class="ui bottom attached tab segment" data-tab="d2" @onclick="FetchUsers">
+<div class="ui bottom attached tab segment" data-tab="d2">
     <div>
         <div class="ui list">
-            @if (_users.Count > 0)
+            @foreach (var u in _foundUsers)
             {
-                @foreach (var u in _users)
-                {
-                    <div class="item" @onclick="() => CreateChat(u.Id)">
-                        <i class="huge user circle outline icon"></i>
-                        <div class="content">
-                            <a class="header">@u.Name @u.Surname</a>
-                            <div class="description">
-                                <p>Username: @u.Username</p>
-                            </div>
+                <div class="item" @onclick="() => CreateChat(u.Id)">
+                    <i class="huge user circle outline icon"></i>
+                    <div class="content">
+                        <a class="header">@u.Name @u.Surname</a>
+                        <div class="description">
+                            <p>@u.Username: @u.Biography</p>
                         </div>
                     </div>
-                }
-            }
-            else
-            {
-                _showNoUserFound = true;
+                </div>
             }
         </div>
     </div>
@@ -98,9 +89,8 @@ else if (_showNoUserFound)
 @code {
     bool _isError, _showNoUserFound;
     string _errorTitle, _errorMessage;
-    RepeatedField<UserInfo> _users = new();
-    ChatsResponse? _chats = new();
-    readonly List<GrpcChat> _chatsList = new();
+    List<UserInfo> _foundUsers = new();
+    GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,7 +105,14 @@ else if (_showNoUserFound)
         switch (response.Result.Status)
         {
             case Status.Ok:
-                _users = response.Users;
+                if (response.Users.Count > 0)
+                {
+                    _foundUsers = response.Users.ToList();
+                }
+                else
+                {
+                    _showNoUserFound = true;
+                }
                 break;
             case Status.Error:
                 _isError = true;
@@ -152,6 +149,40 @@ else if (_showNoUserFound)
         switch (response.Result.Status)
         {
             case Status.Ok:
+                _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta era troppo pesante";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta contiene dei paramentri non validi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task GetChats()
+    {
+        var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                _foundChats = response.Chats.ToArray();
                 break;
             case Status.Error:
                 break;
@@ -164,11 +195,6 @@ else if (_showNoUserFound)
             default:
                 throw new ArgumentOutOfRangeException();
         }
-    }
-
-    private async Task GetChats()
-    {
-        _chats = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
     }
 
 }

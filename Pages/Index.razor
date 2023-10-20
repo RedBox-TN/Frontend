@@ -1,8 +1,9 @@
 ﻿@page "/"
-@using Frontend.Models
-@using Frontend.Token_Utility
 @using Microsoft.AspNetCore.Components.Forms
 @using RedBoxAuthentication
+@using Frontend.Models
+@using Frontend.Token_Utility
+@using Grpc.Core
 @using Frontend.Client_Utility
 @using System.Text.RegularExpressions
 @inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
@@ -42,14 +43,14 @@
                     }
                     <div class="field">
                         <div class="ui left icon input">
-                            <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username"/>
+                            <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username o Email"/>
                             <i class="user icon"></i>
                         </div>
                     </div>
                     <div class="field">
                         <div class="ui left icon input">
                             <InputText @ref="_passwordRef" type="@_txtType" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
-                            <i class="@_keyIcon" @onclick="ShowPassword" ></i>
+                            <i class="@_keyIcon" @onclick="ShowPassword"></i>
                         </div>
                     </div>
                     <button type="submit" class="ui fluid large icon red submit button">
@@ -135,40 +136,50 @@
             };
         }
 
-        var response = await AuthApi.LoginAsync(request);
-        _isLogging = false;
-        _token = response.Token;
-        _expiresAt = response.ExpiresAt;
-        switch (response.Status)
+        try
         {
-            case LoginStatus.InvalidCredentials:
-                _errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
-                _showError = true;
-                break;
-            case LoginStatus.MissingParameter:
-                _errorMessage = "ogni campo va compilato per effettuare il login";
-                _showError = true;
-                break;
-            case LoginStatus.AlreadyLogged:
-                NavigationManager.NavigateTo("/Messages");
-                break;
-            case LoginStatus.LoginSuccess:
-                ClientUtility.SetAuthToken(_token);
-                await TokenRefresh.RefreshToken(new TokenRefreshResponse
-                {
-                    Token = _token,
-                    ExpiresAt = _expiresAt
-                });
-                NavigationManager.NavigateTo("/Messages");
-                break;
-            case LoginStatus.Require2Fa:
-                break;
-            case LoginStatus.IsBlocked:
-                _errorMessage = "l'utente è bloccato, contatta un amministratore";
-                _showError = true;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            var response = await AuthApi.LoginAsync(request);
+            _isLogging = false;
+            _token = response.Token;
+            _expiresAt = response.ExpiresAt;
+            switch (response.Status)
+            {
+                case LoginStatus.InvalidCredentials:
+                    _errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
+                    _showError = true;
+                    break;
+                case LoginStatus.MissingParameter:
+                    _errorMessage = "ogni campo va compilato per effettuare il login";
+                    _showError = true;
+                    break;
+                case LoginStatus.AlreadyLogged:
+                    NavigationManager.NavigateTo("/Messages");
+                    break;
+                case LoginStatus.LoginSuccess:
+                    ClientUtility.SetAuthToken(_token);
+                    await TokenRefresh.RefreshToken(new TokenRefreshResponse
+                    {
+                        Token = _token,
+                        ExpiresAt = _expiresAt
+                    });
+                    NavigationManager.NavigateTo("/Messages");
+                    break;
+                case LoginStatus.Require2Fa:
+                    break;
+                case LoginStatus.IsBlocked:
+                    _errorMessage = "l'utente è bloccato, contatta un amministratore";
+                    _showError = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch
+            (RpcException e)
+        {
+            _isLogging = false;
+            _errorMessage = e.Message;
+            _showError = true;
         }
     }
 
