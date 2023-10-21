@@ -71,10 +71,10 @@ message GrpcGroup {
 message Collection {
   // indica quale collezione si intende cercare, una chat o un gruppo
   oneof name {
-    // il nome della chat
-    string chat = 1;
-    // il nome del gruppo
-    string group = 2;
+	  // il nome della chat
+	  string chat = 1;
+	  // il nome del gruppo
+	  string group = 2;
   }
 }
 

@@ -1,186 +1,201 @@
-﻿@page "/"
-@using Microsoft.AspNetCore.Components.Forms
-@using RedBoxAuthentication
-@using Frontend.Models
-@using Frontend.Token_Utility
-@using Grpc.Core
+@page "/"
+@using RedBoxServices
+@using Shared
 @using Frontend.Client_Utility
-@using System.Text.RegularExpressions
-@inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
+@using Google.Protobuf.WellKnownTypes
 @inject ClientUtility ClientUtility
-@inject TokenRefresh TokenRefresh
-
-<head>
-    <title>
-        Login
-    </title>
-    <style>
-        body {
-          background-color: #F8F7F6;
-        }
-      </style>
-</head>
-
-<div class="ui two column grid center aligned middle aligned" style="height: 100vh">
-    <div class="column">
-        <div class="ui 
-        container" style="max-width: 450px">
-            <div class="ui header">
-                Effettua l'accesso
-            </div>
-            <EditForm Model="@_userLoginModel" OnValidSubmit="Login" class="ui large form">
-                <div class="ui segment">
-                    @if (_showError)
-                    {
-                        <div class="ui negative message">
-                            <div class="header">
-                                Impossibile effettuare il login
-                            </div>
-                            <p>
-                                @_errorMessage
-                            </p>
-                        </div>
-                    }
-                    <div class="field">
-                        <div class="ui left icon input">
-                            <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username o Email"/>
-                            <i class="user icon"></i>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <div class="ui left icon input">
-                            <InputText @ref="_passwordRef" type="@_txtType" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
-                            <i class="@_keyIcon" @onclick="ShowPassword"></i>
-                        </div>
-                    </div>
-                    <button type="submit" class="ui fluid large icon red submit button">
-                        @if (_isLogging)
-                        {
-                            <i class="loading spinner icon"></i>
-                        }
-                        else
-                        {
-                            const string m = "Login";
-                            @m
-                        }
-                    </button>
-                </div>
-            </EditForm>
-        </div>
-    </div>
-    <div class="column">
-        <div class="ui center aligned image">
-            <h1 class="ui header">
-                <div class="content">
-                    Benvenuto in <br/>
-                    <span class="ui red text">RedBox</span>
-                </div>
-            </h1>
-            <img src="Assets/logo.jpg" class="ui image" alt="error">
-        </div>
-    </div>
-</div>
-
+@inject GrpcAccountServices.GrpcAccountServicesClient UserService
+@inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
 @inject NavigationManager NavigationManager
 
+
+<head>
+	<title>Messages</title>
+</head>
+
+@if (_isError)
+{
+	<div class="ui negative message">
+		<i class="close icon"></i>
+		<div class="header">
+			@_errorTitle
+		</div>
+		<p>
+			@_errorMessage
+		</p>
+	</div>
+}
+else if (_showNoUserFound)
+{
+	<div class="ui info message">
+		<i class="close icon"></i>
+		<div class="header">
+			Non ci sono utenti con cui iniziare una conversazione
+		</div>
+		Aspetta che nuovi utenti vengano aggiunti all'applicazione
+	</div>
+}
+<div class="ui top attached tabular menu">
+	<a class="active item" data-tab="d1">
+		Home
+	</a>
+	<a class="item" data-tab="d2" @onclick="FetchUsers">
+		Nuova Chat
+	</a>
+	<div class="right menu">
+		<div class="item">
+			<div class="ui transparent icon input">
+				<input type="text" placeholder="Search users...">
+				<i class="search link icon"></i>
+			</div>
+		</div>
+	</div>
+</div>
+<div class="ui bottom attached tab segment active" data-tab="d1">
+	<button @onclick="GetChats">Get Chats</button>
+	<div class="results">
+		<div class="ui sidebar inverted vertical menu">
+			@foreach (var c in _foundChats)
+			{
+				<a class="item" id="@c.Id">@c.Members[0]</a>
+			}
+		</div>
+	</div>
+</div>
+<div class="ui bottom attached tab segment" data-tab="d2">
+	<div>
+		<div class="ui list">
+			@foreach (var u in _foundUsers)
+			{
+				<div class="item" @onclick="() => CreateChat(u.Id)">
+					<i class="huge user circle outline icon"></i>
+					<div class="content">
+						<a class="header">@u.Name @u.Surname</a>
+						<div class="description">
+							<p>@u.Username: @u.Biography</p>
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+</div>
+
 @code {
+	bool _isError, _showNoUserFound;
+	string _errorTitle, _errorMessage;
+	List<UserInfo> _foundUsers = new();
+	GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
 
-    string? _token;
-    long _expiresAt;
-    bool _showError, _isLogging;
-    string _errorMessage = string.Empty;
-    string _txtType = "password";
-    string _keyIcon = "red key link icon";
-    InputText? _passwordRef;
+	protected override async Task OnInitializedAsync()
+	{
+		await base.OnInitializedAsync();
+		if (!ClientUtility.IsLoggedIn())
+			NavigationManager.NavigateTo("/Login");
+	}
 
-    public void ShowPassword()
-    {
-        if (_txtType == "password")
-        {
-            _txtType = "text";
-            _keyIcon = "key link icon";
-            _passwordRef!.Element!.Value.FocusAsync();
-        }
-        else
-        {
-            _txtType = "password";
-            _keyIcon = "red key link icon";
-            _passwordRef!.Element!.Value.FocusAsync();
-        }
-    }
+	// Function callend on every dynamic update
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		await JsRuntime.InvokeVoidAsync("closeMessages");
+	}
 
-    readonly UserLogin _userLoginModel = new()
-    {
-        UsernameEmail = null,
-        Password = null
-    };
+	private async Task FetchUsers()
+	{
+		var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
+		switch (response.Result.Status)
+		{
+			case Status.Ok:
+				if (response.Users.Count > 0)
+				{
+					_foundUsers = response.Users.ToList();
+				}
+				else
+				{
+					_showNoUserFound = true;
+				}
+				break;
+			case Status.Error:
+				_isError = true;
+				_errorTitle = "Errore del backend";
+				_errorMessage = response.Result.Error;
+				break;
+			case Status.MissingParameters:
+				_isError = true;
+				_errorTitle = "Paramentri mancanti";
+				_errorMessage = "la richiesta inviata è incompleta";
+				break;
+			case Status.AttachmentTooBig:
+				_isError = true;
+				_errorTitle = "Messaggio troppo pesante";
+				_errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+				break;
+			case Status.InvalidParameter:
+				_isError = true;
+				_errorTitle = "Paramentri invalidi";
+				_errorMessage = "la richiesta inviata contine parametri invalidi";
+				break;
+			default:
+				throw new ArgumentOutOfRangeException();
+		}
+	}
 
-    private async Task Login()
-    {
-        _isLogging = true;
-        LoginRequest request;
-        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userLoginModel.UsernameEmail))
-        {
-            request = new LoginRequest
-            {
-                Email = _userLoginModel.UsernameEmail,
-                Password = _userLoginModel.Password
-            };
-        }
-        else
-        {
-            request = new LoginRequest
-            {
-                Username = _userLoginModel.UsernameEmail,
-                Password = _userLoginModel.Password
-            };
-        }
+	private async Task CreateChat(string userId)
+	{
+		var response = await ConversationServices.CreateChatAsync(new StringMessage
+		{
+			Value = userId
+		});
 
-        try
-        {
-            var response = await AuthApi.LoginAsync(request);
-            _isLogging = false;
-            _token = response.Token;
-            _expiresAt = response.ExpiresAt;
-            switch (response.Status)
-            {
-                case LoginStatus.InvalidCredentials:
-                    _errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
-                    _showError = true;
-                    break;
-                case LoginStatus.MissingParameter:
-                    _errorMessage = "ogni campo va compilato per effettuare il login";
-                    _showError = true;
-                    break;
-                case LoginStatus.AlreadyLogged:
-                    NavigationManager.NavigateTo("/Messages");
-                    break;
-                case LoginStatus.LoginSuccess:
-                    ClientUtility.SetAuthToken(_token);
-                    await TokenRefresh.RefreshToken(new TokenRefreshResponse
-                    {
-                        Token = _token,
-                        ExpiresAt = _expiresAt
-                    });
-                    NavigationManager.NavigateTo("/Messages");
-                    break;
-                case LoginStatus.Require2Fa:
-                    break;
-                case LoginStatus.IsBlocked:
-                    _errorMessage = "l'utente è bloccato, contatta un amministratore";
-                    _showError = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        catch
-            (RpcException e)
-        {
-            _isLogging = false;
-            _errorMessage = e.Message;
-            _showError = true;
-        }
-    }
+		switch (response.Result.Status)
+		{
+			case Status.Ok:
+				_foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
+				break;
+			case Status.Error:
+				_isError = true;
+				_errorTitle = "Impossibile creare la chat";
+				_errorMessage = response.Result.Error;
+				break;
+			case Status.MissingParameters:
+				_isError = true;
+				_errorTitle = "Impossibile creare la chat";
+				_errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+				break;
+			case Status.AttachmentTooBig:
+				_isError = true;
+				_errorTitle = "Impossibile creare la chat";
+				_errorMessage = "La richiesta era troppo pesante";
+				break;
+			case Status.InvalidParameter:
+				_isError = true;
+				_errorTitle = "Impossibile creare la chat";
+				_errorMessage = "La richiesta contiene dei paramentri non validi";
+				break;
+			default:
+				throw new ArgumentOutOfRangeException();
+		}
+	}
+
+	private async Task GetChats()
+	{
+		var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
+		switch (response.Result.Status)
+		{
+			case Status.Ok:
+				_foundChats = response.Chats.ToArray();
+				break;
+			case Status.Error:
+				break;
+			case Status.MissingParameters:
+				break;
+			case Status.AttachmentTooBig:
+				break;
+			case Status.InvalidParameter:
+				break;
+			default:
+				throw new ArgumentOutOfRangeException();
+		}
+	}
 
 }

@@ -18,7 +18,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+	BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
 });
 
 var client = new ClientUtility(new OptionsWrapper<RedBoxBackEndSettings>(backEndSettings.Get<RedBoxBackEndSettings>()));
@@ -28,7 +28,7 @@ builder.Services.AddSingleton(client);
 builder.Services.AddSingleton(new AuthenticationGrpcService.AuthenticationGrpcServiceClient(client.GetChannel()));
 builder.Services.AddSingleton(new GrpcConversationServices.GrpcConversationServicesClient(client.GetChannel()));
 builder.Services.AddSingleton(
-    new GrpcSupervisedConversationService.GrpcSupervisedConversationServiceClient(client.GetChannel()));
+	new GrpcSupervisedConversationService.GrpcSupervisedConversationServiceClient(client.GetChannel()));
 builder.Services.AddSingleton(new GrpcAccountServices.GrpcAccountServicesClient(client.GetChannel()));
 builder.Services.AddSingleton(new GrpcAdminServices.GrpcAdminServicesClient(client.GetChannel()));
 
