@@ -1,52 +1,25 @@
-using System.Net.Http.Headers;
-using Frontend.Settings;
-using Grpc.Net.Client;
-using Grpc.Net.Client.Web;
-using Microsoft.Extensions.Options;
+using Blazored.SessionStorage;
+using Frontend.Channel_Utility;
+using Frontend.Token_Utility;
 
 namespace Frontend.Client_Utility;
 
 public class ClientUtility
 {
-	private readonly HttpClient _httpClient;
-	private readonly RedBoxBackEndSettings _options;
-	private GrpcChannel _channel;
+    private readonly ChannelUtility _channelUtility;
+    private readonly ISyncSessionStorageService _syncSessionStorage;
+    private readonly TokenUtility _tokenUtility;
 
-	public ClientUtility(IOptions<RedBoxBackEndSettings> options)
-	{
-		_options = options.Value;
-		_httpClient = new HttpClient(new GrpcWebHandler(GrpcWebMode.GrpcWeb, new HttpClientHandler()));
-		_channel = GrpcChannel.ForAddress(_options.BackEndUrl, new GrpcChannelOptions
-		{
-			HttpClient = _httpClient
-		});
-	}
+    public ClientUtility(ISyncSessionStorageService syncSessionStorage, ChannelUtility channelUtility,
+        TokenUtility tokenUtility)
+    {
+        _syncSessionStorage = syncSessionStorage;
+        _channelUtility = channelUtility;
+        _tokenUtility = tokenUtility;
+    }
 
-	public GrpcChannel GetChannel()
-	{
-		return _channel;
-	}
-
-	public void SetAuthToken(string token)
-	{
-		_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(token);
-		_channel = GrpcChannel.ForAddress(_options.BackEndUrl, new GrpcChannelOptions
-		{
-			HttpClient = _httpClient
-		});
-	}
-
-	public void UnsetAuthToken()
-	{
-		_httpClient.DefaultRequestHeaders.Authorization = null;
-		_channel = GrpcChannel.ForAddress(_options.BackEndUrl, new GrpcChannelOptions
-		{
-			HttpClient = _httpClient
-		});
-	}
-
-	public bool IsLoggedIn()
-	{
-		return _httpClient.DefaultRequestHeaders.Authorization is not null;
-	}
+    public bool IsLoggedIn()
+    {
+        return _channelUtility.GetHttpClient().DefaultRequestHeaders.Authorization != null;
+    }
 }

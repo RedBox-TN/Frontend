@@ -4,17 +4,19 @@
 @using Frontend.Models
 @using Frontend.Token_Utility
 @using Grpc.Core
+@using Frontend.Channel_Utility
 @using Frontend.Client_Utility
 @using System.Text.RegularExpressions
 @inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
+@inject TokenUtility TokenUtility
+@inject ChannelUtility ChannelUtility
 @inject ClientUtility ClientUtility
-@inject TokenRefresh TokenRefresh
 
 <head>
-	<title>
-		Login
-	</title>
-	<style>
+    <title>
+        Login
+    </title>
+    <style>
 		body {
 		  background-color: #F8F7F6;
 		}
@@ -22,172 +24,172 @@
 </head>
 
 <div class="ui two column grid center aligned middle aligned" style="height: 100vh">
-	<div class="column">
-		<div class="ui 
+    <div class="column">
+        <div class="ui 
 		container" style="max-width: 450px">
-			<div class="ui header">
-				Effettua l'accesso
-			</div>
-			<EditForm Model="@_userLoginModel" OnValidSubmit="@LoginFun" class="ui large form">
-				<DataAnnotationsValidator/>
-				<div class="ui segment">
-					@if (_showError)
-					{
-						<div class="ui negative message transition">
-							<i class="close icon"></i>
-							<div class="header">
-								Impossibile effettuare il login
-							</div>
-							<p>
-								@_errorMessage
-							</p>
-						</div>
-					}
-					<div class="field">
-						<div class="ui left icon input">
-							<InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username o Email"/>
-							<i class="user icon"></i>
-						</div>
-					</div>
-					<div class="field">
-						<div class="ui left icon input">
-							<InputText @ref="_passwordRef" type="@_txtType" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
-							<i class="@_keyIcon" @onclick="ShowPassword"></i>
-						</div>
-					</div>
-					<button type="submit" class="ui fluid large icon red submit button">
-						@if (_isLogging)
-						{
-							<i class="loading spinner icon"></i>
-						}
-						else
-						{
-							const string m = "Login";
-							@m
-						}
-					</button>
-				</div>
-			</EditForm>
-		</div>
-	</div>
-	<div class="column">
-		<div class="ui center aligned image">
-			<h1 class="ui header">
-				<div class="content">
-					Benvenuto in <br/>
-					<span class="ui red text">RedBox</span>
-				</div>
-			</h1>
-			<img src="Assets/logo.jpg" class="ui image" alt="error">
-		</div>
-	</div>
+            <div class="ui header">
+                Effettua l'accesso
+            </div>
+            <EditForm Model="@_userLoginModel" OnValidSubmit="@LoginFun" class="ui large form">
+                <DataAnnotationsValidator/>
+                <div class="ui segment">
+                    @if (_showError)
+                    {
+                        <div class="ui negative message transition">
+                            <i class="close icon"></i>
+                            <div class="header">
+                                Impossibile effettuare il login
+                            </div>
+                            <p>
+                                @_errorMessage
+                            </p>
+                        </div>
+                    }
+                    <div class="field">
+                        <div class="ui left icon input">
+                            <InputText id="username" @bind-Value="_userLoginModel.UsernameEmail" placeholder="Username o Email"/>
+                            <i class="user icon"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="ui left icon input">
+                            <InputText @ref="_passwordRef" type="@_txtType" id="password" @bind-Value="_userLoginModel.Password" placeholder="Password"/>
+                            <i class="@_keyIcon" @onclick="ShowPassword"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="ui fluid large icon red submit button">
+                        @if (_isLogging)
+                        {
+                            <i class="loading spinner icon"></i>
+                        }
+                        else
+                        {
+                            const string m = "Login";
+                            @m
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+    <div class="column">
+        <div class="ui center aligned image">
+            <h1 class="ui header">
+                <div class="content">
+                    Benvenuto in <br/>
+                    <span class="ui red text">RedBox</span>
+                </div>
+            </h1>
+            <img src="Assets/logo.jpg" class="ui image" alt="error">
+        </div>
+    </div>
 </div>
 
 @code {
 
-	string? _token;
-	long _expiresAt;
-	bool _showError, _isLogging;
-	string _errorMessage = string.Empty;
-	string _txtType = "password";
-	string _keyIcon = "red key link icon";
-	InputText? _passwordRef;
+    string? _token;
+    long _expiresAt;
+    bool _showError, _isLogging;
+    string _errorMessage = string.Empty;
+    string _txtType = "password";
+    string _keyIcon = "red key link icon";
+    InputText? _passwordRef;
 
-	// Function callend on every dynamic update
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		await JsRuntime.InvokeVoidAsync("closeMessages");
-		await JsRuntime.InvokeVoidAsync("tabMenu");
-	}
+    // Function callend on every dynamic update
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JsRuntime.InvokeVoidAsync("closeMessages");
+        await JsRuntime.InvokeVoidAsync("tabMenu");
+    }
 
-	public void ShowPassword()
-	{
-		if (_txtType == "password")
-		{
-			_txtType = "text";
-			_keyIcon = "key link icon";
-			_passwordRef!.Element!.Value.FocusAsync();
-		}
-		else
-		{
-			_txtType = "password";
-			_keyIcon = "red key link icon";
-			_passwordRef!.Element!.Value.FocusAsync();
-		}
-	}
+    public void ShowPassword()
+    {
+        if (_txtType == "password")
+        {
+            _txtType = "text";
+            _keyIcon = "key link icon";
+            _passwordRef!.Element!.Value.FocusAsync();
+        }
+        else
+        {
+            _txtType = "password";
+            _keyIcon = "red key link icon";
+            _passwordRef!.Element!.Value.FocusAsync();
+        }
+    }
 
-	readonly UserLogin _userLoginModel = new()
-	{
-		UsernameEmail = null,
-		Password = null
-	};
+    readonly UserLogin _userLoginModel = new()
+    {
+        UsernameEmail = null,
+        Password = null
+    };
 
-	private async Task LoginFun()
-	{
-		_isLogging = true;
-		LoginRequest request;
-		if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userLoginModel.UsernameEmail))
-		{
-			request = new LoginRequest
-			{
-				Email = _userLoginModel.UsernameEmail,
-				Password = _userLoginModel.Password
-			};
-		}
-		else
-		{
-			request = new LoginRequest
-			{
-				Username = _userLoginModel.UsernameEmail,
-				Password = _userLoginModel.Password
-			};
-		}
+    private async Task LoginFun()
+    {
+        _isLogging = true;
+        LoginRequest request;
+        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userLoginModel.UsernameEmail))
+        {
+            request = new LoginRequest
+            {
+                Email = _userLoginModel.UsernameEmail,
+                Password = _userLoginModel.Password
+            };
+        }
+        else
+        {
+            request = new LoginRequest
+            {
+                Username = _userLoginModel.UsernameEmail,
+                Password = _userLoginModel.Password
+            };
+        }
 
-		try
-		{
-			var response = await AuthApi.LoginAsync(request);
-			_isLogging = false;
-			_token = response.Token;
-			_expiresAt = response.ExpiresAt;
-			switch (response.Status)
-			{
-				case LoginStatus.InvalidCredentials:
-					_errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
-					_showError = true;
-					break;
-				case LoginStatus.MissingParameter:
-					_errorMessage = "ogni campo va compilato per effettuare il login";
-					_showError = true;
-					break;
-				case LoginStatus.AlreadyLogged:
-					NavigationManager.NavigateTo("/Messages");
-					break;
-				case LoginStatus.LoginSuccess:
-					ClientUtility.SetAuthToken(_token);
-					await TokenRefresh.RefreshToken(new TokenRefreshResponse
-					{
-						Token = _token,
-						ExpiresAt = _expiresAt
-					});
-					NavigationManager.NavigateTo("/Messages");
-					break;
-				case LoginStatus.Require2Fa:
-					break;
-				case LoginStatus.IsBlocked:
-					_errorMessage = "l'utente è bloccato, contatta un amministratore";
-					_showError = true;
-					break;
-				default:
-					throw new ArgumentOutOfRangeException();
-			}
-		}
-		catch
-			(RpcException e)
-		{
-			_isLogging = false;
-			_errorMessage = e.Message;
-			_showError = true;
-		}
-	}
+        try
+        {
+            var response = await AuthApi.LoginAsync(request);
+            _isLogging = false;
+            _token = response.Token;
+            _expiresAt = response.ExpiresAt;
+            switch (response.Status)
+            {
+                case LoginStatus.InvalidCredentials:
+                    _errorMessage = $"le credenziali inserite non sono corrette, hai ancora {response.AttemptsLeft} tentativi prima che il tuo account venga bloccato";
+                    _showError = true;
+                    break;
+                case LoginStatus.MissingParameter:
+                    _errorMessage = "ogni campo va compilato per effettuare il login";
+                    _showError = true;
+                    break;
+                case LoginStatus.AlreadyLogged:
+                    NavigationManager.NavigateTo("/");
+                    break;
+                case LoginStatus.LoginSuccess:
+                    ChannelUtility.SetAuthToken(_token);
+                    await TokenUtility.RefreshToken(new TokenRefreshResponse
+                    {
+                        Token = _token,
+                        ExpiresAt = _expiresAt
+                    });
+                    NavigationManager.NavigateTo("/");
+                    break;
+                case LoginStatus.Require2Fa:
+                    break;
+                case LoginStatus.IsBlocked:
+                    _errorMessage = "l'utente è bloccato, contatta un amministratore";
+                    _showError = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch
+            (RpcException e)
+        {
+            _isLogging = false;
+            _errorMessage = e.Message;
+            _showError = true;
+        }
+    }
 
 }
