@@ -6,15 +6,29 @@
     <title>Frontend</title>
     <base href="/"/>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="css/semantic.min.js"></script>
+    <script>
+        function closeMessages() {
+            $('.message .close').on('click', function () {
+                $(this)
+                    .closest('.message')
+                    .transition('fade');
+            });
+        }
+
+        function tabMenu() {
+            $(document).ready(function () {
+                // Inizializza il menu tabulato
+                $('.menu .item').tab();
+            });
+        }
+    </script>
     <link href="css/app.css" rel="stylesheet"/>
     <link href="css/semantic.min.css" rel="stylesheet"/>
-
-    <!-- If you add any scoped CSS files, uncomment the following to load them
-    <link href="Frontend.styles.css" rel="stylesheet" /> -->
 </head>
 
 <body>
-<div id="app" >
+<div id="app">
     <div class="ui red text large active loader">
         Loading
     </div>

@@ -1,0 +1,182 @@
+syntax = "proto3";
+
+package redbox_services;
+
+option csharp_namespace = "RedBoxServices";
+
+import "google/protobuf/empty.proto";
+
+import "shared.proto";
+
+// mappa la classe User
+message GrpcUser {
+  // l'id dell'utente, nel formato ObjectId 
+  optional string id = 1;
+  // il nome dell'utente
+  string name = 2;
+  // il cognome dell'utente
+  string surname = 3;
+  // l'indirizzo email dell'utente, univoco
+  string email = 4;
+  // l'id del ruolo
+  string role_id = 5;
+  // indica se l'utente è bloccato o no, in caso lo sia non potrà effettuare il login
+  optional bool is_blocked = 8;
+  // indica se l'autenticazione a due fattori è attiva sull'account
+  optional bool is_fa_enabled = 9;
+  // lo username, univoco
+  string username = 10;
+  // un breve testo
+  string biography = 11;
+}
+
+// richiesta che contiene un id, uno username o una mail di un utente
+message GrpcUserFetch {
+  // l'identificatore dell'utente, a scelta tra id, username e email
+  oneof identifier {
+    // l'id dell'utente
+    string id = 1;
+    // lo username dell'utente
+    string username = 2;
+    // l'email dell'utente
+    string email = 3;
+  }
+}
+// richiesta di ripristino della password
+message ForgottenPasswordRequest {
+  // il token contenuto nella mail
+  string token = 1;
+  // la nuova password
+  string new_password = 2;
+}
+// richiesta di cambio della password, data quella vecchia
+message PasswordChange {
+  // la vecchia password
+  string old_password = 2;
+  // la nuova password
+  string new_password = 3;
+}
+// per attivare o disattivare la 2fa sull'account di un utente
+message Grpc2FAChange {
+  // l'id dell'utente
+  optional string id = 1;
+  // indica se l'autenticazione a due fattori è attiva
+  optional bool is_fa_enabled = 2;
+}
+// risposta contenente un utente
+message GrpcUserResult {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // l'utente richiesto
+  GrpcUser user = 2;
+}
+// riposta contente più utenti
+message GrpcUserResults {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // gli utenti richiesti
+  repeated GrpcUser user = 2;
+}
+// risposta contente il risultato dell'attivazione dell'autenticazione a due fattori
+message Grpc2faResult {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // l'immagine del qr code generato in base64 
+  string qr_code = 2;
+  // il codice da usare come seed in caso in cui il qr code non sia utilizzabile
+  string manual_code = 3;
+}
+// risposta contente il risultato dell'operazione di provisoning di un account
+message GrpcProvisionResult {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // indica se è necessario configurare la l'autenticazione a due fattori
+  bool fa_provisioning = 2;
+  // indica se è necessario impostare una nuova password, avviene dopo che un admin ne ha impostata una temporanea
+  bool password_provisioning = 3;
+  // 
+  bool key_provisioning = 4;
+}
+// mappa la classe Role
+message GrpcRole {
+  // l'id del ruolo
+  optional string id = 1;
+  // i permessi associati al ruolo, visti come una maschera di bit
+  optional uint32 permissions = 2;
+  // una breve descrizione del gruppo
+  string description = 3;
+  // il nome
+  string name = 4;
+}
+// richiede un ruolo dato l'id o il nome
+message GrpcRoleIdentifier {
+  // contiene l'id o il nome del ruolo, entrambi univoci
+  oneof identifier {
+    // l'id del ruolo
+    string id = 1;
+    // il nome del ruolo
+    string name = 2;
+  }
+}
+// risposta contenente un ruolo
+message GrpcRoleResult {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // il ruolo richiesto
+  GrpcRole role = 2;
+}
+// risposta contenente molteplici ruoli
+message GrpcRoleResults {
+  // il risultato dell'operazione
+  shared.Result result = 1;
+  // i ruoli richiesti
+  repeated GrpcRole roles = 2;
+}
+/*
+  Servizi per la gestione del proprio account da parte degli utenti
+*/
+service GrpcAccountServices {
+  // consente di apportare modifiche al proprio account utente
+  rpc ModifyUser (GrpcUser) returns (shared.Result);
+  // consente di verificare se il token utilizzato per le altre richieste è valido
+  rpc TokenCheck (shared.StringMessage) returns (shared.Result);
+  // consente di effettuare il cambio della password in caso di smarrimento
+  rpc ForgottenPasswordReset (ForgottenPasswordRequest) returns (shared.Result);
+  // consente di completare il cambio dell'indirizzo email
+  rpc FinalizeEmailChange (shared.StringMessage) returns (shared.Result);
+  // consente di modificare lo stato dell'autenticazione a due fattori sul proprio account
+  rpc FAStateChange (Grpc2FAChange) returns (Grpc2faResult);
+  // recupera un'utente
+  rpc FetchUser (GrpcUserFetch) returns (GrpcUserResult);
+  // recupera tutti gli utenti
+  rpc FetchAllUsers (google.protobuf.Empty) returns (GrpcUserResults);
+  // effettua il provisioning dell'account utente
+  rpc AccountProvision (GrpcUser) returns (GrpcProvisionResult);
+  // consente di cambiare la password, conoscendo quella vecchia
+  rpc UserPasswordChange (PasswordChange) returns (shared.Result);
+}
+/*
+   Servizi per la gestione degli account utenti da parte degli amministratori (possessori del permesso Manage User Account)   
+*/
+service GrpcAdminServices {
+  // crea un nuovo utente
+  rpc CreateUser (GrpcUser) returns (shared.Result);
+  // cancella un utente
+  rpc DeleteUser (GrpcUser) returns (shared.Result);
+  // imposta una password random ad un utente specifico, la password è comunicata per email e valida per un solo login. Al login è richiesto di cambiarla 
+  rpc SetUserRandomPassword (shared.StringMessage) returns (shared.Result);
+  // impedisce la modifica dello stato dell'autenticazione a due fattori
+  rpc BlockStateChange (GrpcUser) returns (shared.Result);
+  // modifica un account utente
+  rpc AdminModifyUser (GrpcUser) returns (shared.Result);
+  // crea un nuovo ruolo con degli specifici permessi
+  rpc CreateRole (GrpcRole) returns (shared.Result);
+  // cancella un ruolo
+  rpc DeleteRole (GrpcRoleIdentifier) returns (shared.Result);
+  // modifica un ruolo
+  rpc ModifyRole (GrpcRole) returns (shared.Result);
+  // recupera i dettagli di un ruolo
+  rpc FetchRole (GrpcRoleIdentifier) returns (GrpcRoleResult);
+  // recupera tutti i ruoli presenti
+  rpc FetchAllRoles (google.protobuf.Empty) returns (GrpcRoleResults);
+}

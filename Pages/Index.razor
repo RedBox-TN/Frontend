@@ -1,111 +1,201 @@
-﻿@page "/"
-@using Frontend.Models
-@using Microsoft.AspNetCore.Components.Forms
-@using RedBoxAuthentication
+@page "/"
+@using RedBoxServices
+@using Shared
 @using Frontend.Client_Utility
-@using System.Text.RegularExpressions
-@using Frontend.Token_Utility
-@inject AuthenticationGrpcService.AuthenticationGrpcServiceClient AuthApi
+@using Google.Protobuf.WellKnownTypes
 @inject ClientUtility ClientUtility
-@inject TokenRefresh TokenRefresh
+@inject GrpcAccountServices.GrpcAccountServicesClient UserService
+@inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
+@inject NavigationManager NavigationManager
+
 
 <head>
-    <style type="text/css">
-        body {
-          background-color: #F8F7F6;
-        }
-        body > .grid {
-          height: 100%;
-        }
-        .image {
-          margin-top: -100px;
-        }
-        .column {
-          max-width: 450px;
-        }
-      </style>
+    <title>Messages</title>
 </head>
 
-<div class="ui container center aligned middle aligned grid">
-    <div class="column">        
-        <h2 class="ui image header">
-            <img src="Assets/logo.jpg" class="image" alt="error">
-            <div class="content">
-                Benvenuto in <span class="ui red text">RedBox</span>
-            </div>
-        </h2>
-        <EditForm Model="@_userModel" OnValidSubmit="@Login" class="ui large form" > 
-            <DataAnnotationsValidator/>
-            <div class="ui stacked segment">
-                <div class="field">
-                    <div class="ui input left icon">
-                        <InputText id="username" @bind-Value="_userModel.UsernameEmail" placeholder="Username"/>
-                        <i class="user icon"></i>
-                        <ValidationMessage For="() => _userModel.UsernameEmail" class="ui red error"/>
-                    </div>
-                </div>
-                <div class="field">
-                    <div class="ui input left icon">
-                        <InputText type="password" id="password" @bind-Value="_userModel.Password" placeholder="Password"/>
-                        <i class="key icon"></i>
-                        <ValidationMessage For="() => _userModel.Password" class="ui red error"/>
-                    </div>
-                </div>
-                <button type="submit" class="ui fluid large red submit button">Submit</button>
-            </div>
-        </EditForm>
+@if (_isError)
+{
+    <div class="ui negative message">
+        <i class="close icon"></i>
+        <div class="header">
+            @_errorTitle
+        </div>
         <p>
-            Status: @_status
+            @_errorMessage
         </p>
+    </div>
+}
+else if (_showNoUserFound)
+{
+    <div class="ui info message">
+        <i class="close icon"></i>
+        <div class="header">
+            Non ci sono utenti con cui iniziare una conversazione
+        </div>
+        Aspetta che nuovi utenti vengano aggiunti all'applicazione
+    </div>
+}
+<div class="ui top attached tabular menu">
+    <a class="active item" data-tab="d1">
+        Home
+    </a>
+    <a class="item" data-tab="d2" @onclick="FetchUsers">
+        Nuova Chat
+    </a>
+    <div class="right menu">
+        <div class="item">
+            <div class="ui transparent icon input">
+                <input type="text" placeholder="Search users...">
+                <i class="search link icon"></i>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="ui bottom attached tab segment active" data-tab="d1">
+    <button @onclick="GetChats">Get Chats</button>
+    <div class="results">
+        <div class="ui sidebar inverted vertical menu">
+            @foreach (var c in _foundChats)
+            {
+                <a class="item" id="@c.Id">@c.Members[0]</a>
+            }
+        </div>
+    </div>
+</div>
+<div class="ui bottom attached tab segment" data-tab="d2">
+    <div>
+        <div class="ui list">
+            @foreach (var u in _foundUsers)
+            {
+                <div class="item" @onclick="() => CreateChat(u.Id)">
+                    <i class="huge user circle outline icon"></i>
+                    <div class="content">
+                        <a class="header">@u.Name @u.Surname</a>
+                        <div class="description">
+                            <p>@u.Username: @u.Biography</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
-@inject NavigationManager NavigationManager
 @code {
+    bool _isError, _showNoUserFound;
+    string _errorTitle, _errorMessage;
+    List<UserInfo> _foundUsers = new();
+    GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
 
-    string? _token;
-    string? _status;
-    long _expiresAt;
-
-    readonly User _userModel = new User
+    protected override async Task OnInitializedAsync()
     {
-        UsernameEmail = null,
-        Password = null
-    };
+        await base.OnInitializedAsync();
+        if (!ClientUtility.IsLoggedIn())
+            NavigationManager.NavigateTo("/Login");
+    }
 
-    private async Task Login()
+    // Function callend on every dynamic update
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        LoginRequest request;
-        if (new Regex(@"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$").IsMatch(_userModel.UsernameEmail))
-        {
-            request = new LoginRequest
-            {
-                Email = _userModel.UsernameEmail,
-                Password = _userModel.Password
-            };
-        }
-        else
-        {
-            request = new LoginRequest
-            {
-                Username = _userModel.UsernameEmail,
-                Password = _userModel.Password
-            };
-        }
+        await JsRuntime.InvokeVoidAsync("closeMessages");
+    }
 
-        var res = await AuthApi.LoginAsync(request);
-        _token = res.Token;
-        _status = res.Status.ToString();
-        _expiresAt = res.ExpiresAt;
-        if (res.Status == LoginStatus.LoginSuccess)
+    private async Task FetchUsers()
+    {
+        var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
+        switch (response.Result.Status)
         {
-            ClientUtility.SetAuthToken(_token);
-            await TokenRefresh.RefreshToken(new TokenRefreshResponse
-            {
-                Token = _token,
-                ExpiresAt = _expiresAt
-            });
-            NavigationManager.NavigateTo("/Messages");
+            case Status.Ok:
+                if (response.Users.Count > 0)
+                {
+                    _foundUsers = response.Users.ToList();
+                }
+                else
+                {
+                    _showNoUserFound = true;
+                }
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Errore del backend";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Paramentri mancanti";
+                _errorMessage = "la richiesta inviata è incompleta";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Messaggio troppo pesante";
+                _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Paramentri invalidi";
+                _errorMessage = "la richiesta inviata contine parametri invalidi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
+
+    private async Task CreateChat(string userId)
+    {
+        var response = await ConversationServices.CreateChatAsync(new StringMessage
+        {
+            Value = userId
+        });
+
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta era troppo pesante";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta contiene dei paramentri non validi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task GetChats()
+    {
+        var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                _foundChats = response.Chats.ToArray();
+                break;
+            case Status.Error:
+                break;
+            case Status.MissingParameters:
+                break;
+            case Status.AttachmentTooBig:
+                break;
+            case Status.InvalidParameter:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
 }
