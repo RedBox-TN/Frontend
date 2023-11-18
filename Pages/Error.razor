@@ -1,0 +1,27 @@
+@page "/Error"
+@using Frontend.Client_Utility
+@inject ClientUtility ClientUtility
+
+@if (_isLoaded)
+{
+	<h3>Error</h3>
+	<div>Page currently unavailable</div>
+}
+else
+{
+	<div class="ui red text large active loader">
+		Loading
+	</div>
+}
+
+@code {
+	private bool _isLoaded;
+	
+	protected override async Task OnInitializedAsync()
+	{
+		if (await ClientUtility.IsServerOn())
+			NavigationManager.NavigateTo("/");
+		_isLoaded = true;
+	}
+
+}

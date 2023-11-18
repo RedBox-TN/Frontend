@@ -13,85 +13,97 @@
     <title>Messages</title>
 </head>
 
-@if (_isError)
+@if (_isLoaded)
 {
-    <div class="ui negative message">
-        <i class="close icon"></i>
-        <div class="header">
-            @_errorTitle
+    @if (_isError)
+    {
+        <div class="ui negative message">
+            <i class="close icon"></i>
+            <div class="header">
+                @_errorTitle
+            </div>
+            <p>
+                @_errorMessage
+            </p>
         </div>
-        <p>
-            @_errorMessage
-        </p>
-    </div>
-}
-else if (_showNoUserFound)
-{
-    <div class="ui info message">
-        <i class="close icon"></i>
-        <div class="header">
-            Non ci sono utenti con cui iniziare una conversazione
+    }
+    else if (_showNoUserFound)
+    {
+        <div class="ui info message">
+            <i class="close icon"></i>
+            <div class="header">
+                Non ci sono utenti con cui iniziare una conversazione
+            </div>
+            Aspetta che nuovi utenti vengano aggiunti all'applicazione
         </div>
-        Aspetta che nuovi utenti vengano aggiunti all'applicazione
-    </div>
-}
-<div class="ui top attached tabular menu">
-    <a class="active item" data-tab="d1">
-        Home
-    </a>
-    <a class="item" data-tab="d2" @onclick="FetchUsers">
-        Nuova Chat
-    </a>
-    <div class="right menu">
-        <div class="item">
-            <div class="ui transparent icon input">
-                <input type="text" placeholder="Search users...">
-                <i class="search link icon"></i>
+    }
+    <div class="ui top attached tabular menu">
+        <a class="active item" data-tab="d1">
+            Home
+        </a>
+        <a class="item" data-tab="d2" @onclick="FetchUsers">
+            Nuova Chat
+        </a>
+        <div class="right menu">
+            <div class="item">
+                <div class="ui transparent icon input">
+                    <input type="text" placeholder="Search users...">
+                    <i class="search link icon"></i>
+                </div>
             </div>
         </div>
     </div>
-</div>
-<div class="ui bottom attached tab segment active" data-tab="d1">
-    <button @onclick="GetChats">Get Chats</button>
-    <div class="results">
-        <div class="ui sidebar inverted vertical menu">
-            @foreach (var c in _foundChats)
-            {
-                <a class="item" id="@c.Id">@c.Members[0]</a>
-            }
+    <div class="ui bottom attached tab segment active" data-tab="d1">
+        <button @onclick="GetChats">Get Chats</button>
+        <div class="results">
+            <div class="ui sidebar inverted vertical menu">
+                @foreach (var c in _foundChats)
+                {
+                    <a class="item" id="@c.Id">@c.Members[0]</a>
+                }
+            </div>
         </div>
     </div>
-</div>
-<div class="ui bottom attached tab segment" data-tab="d2">
-    <div>
-        <div class="ui list">
-            @foreach (var u in _foundUsers)
-            {
-                <div class="item" @onclick="() => CreateChat(u.Id)">
-                    <i class="huge user circle outline icon"></i>
-                    <div class="content">
-                        <a class="header">@u.Name @u.Surname</a>
-                        <div class="description">
-                            <p>@u.Username: @u.Biography</p>
+    <div class="ui bottom attached tab segment" data-tab="d2">
+        <div>
+            <div class="ui list">
+                @foreach (var u in _foundUsers)
+                {
+                    <div class="item" @onclick="() => CreateChat(u.Id)">
+                        <i class="huge user circle outline icon"></i>
+                        <div class="content">
+                            <a class="header">@u.Name @u.Surname</a>
+                            <div class="description">
+                                <p>@u.Username: @u.Biography</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
     </div>
-</div>
+
+}
+else
+{
+    <div class="ui red text large active loader">
+        Loading
+    </div>
+}
 
 @code {
-    bool _isError, _showNoUserFound;
+    bool _isError, _showNoUserFound, _isLoaded;
     string _errorTitle, _errorMessage;
     List<UserInfo> _foundUsers = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
 
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
-        if (!ClientUtility.IsLoggedIn())
+        if (!await ClientUtility.IsServerOn())
+            NavigationManager.NavigateTo("/Error");
+        if (!await ClientUtility.IsLoggedIn())
             NavigationManager.NavigateTo("/Login");
+        _isLoaded = true;
     }
 
     // Function callend on every dynamic update
