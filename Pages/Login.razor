@@ -23,7 +23,9 @@
 	</style>
 </head>
 
-<div class="ui two column grid center aligned middle aligned" style="height: 100vh">
+@if (_isLoaded)
+{
+    <div class="ui two column grid center aligned middle aligned" style="height: 100vh">
     <div class="column">
         <div class="ui 
 		container" style="max-width: 450px">
@@ -85,16 +87,30 @@
     </div>
 </div>
 
-@code {
+}
+else
+{
+    <div class="ui red text large active loader">
+        Loading
+    </div>
+}
 
+@code {
     string? _token;
     long _expiresAt;
-    bool _showError, _isLogging;
+    bool _showError, _isLogging, _isLoaded;
     string _errorMessage = string.Empty;
     string _txtType = "password";
     string _keyIcon = "red key link icon";
     InputText? _passwordRef;
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await ClientUtility.IsServerOn())
+            NavigationManager.NavigateTo("/Error");
+        _isLoaded = true;
+    }
+    
     // Function callend on every dynamic update
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

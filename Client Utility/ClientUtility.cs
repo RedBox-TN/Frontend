@@ -1,6 +1,7 @@
 using Blazored.SessionStorage;
 using Frontend.Channel_Utility;
 using Frontend.Token_Utility;
+using Grpc.Health.V1;
 
 namespace Frontend.Client_Utility;
 
@@ -9,6 +10,7 @@ public class ClientUtility
     private readonly ChannelUtility _channelUtility;
     private readonly ISyncSessionStorageService _syncSessionStorage;
     private readonly TokenUtility _tokenUtility;
+    private readonly Health.HealthClient _client;
 
     public ClientUtility(ISyncSessionStorageService syncSessionStorage, ChannelUtility channelUtility,
         TokenUtility tokenUtility)
@@ -16,10 +18,25 @@ public class ClientUtility
         _syncSessionStorage = syncSessionStorage;
         _channelUtility = channelUtility;
         _tokenUtility = tokenUtility;
+        _client = new Health.HealthClient(_channelUtility.GetChannel());
     }
 
-    public bool IsLoggedIn()
+    public async Task<bool> IsLoggedIn()
     {
-        return _channelUtility.GetHttpClient().DefaultRequestHeaders.Authorization != null;
+        return await Task.Run(() => _channelUtility.GetHttpClient().DefaultRequestHeaders.Authorization != null);
+    }
+
+    public async Task<bool> IsServerOn()
+    {
+        try
+        {
+            var response = await _client.CheckAsync(new HealthCheckRequest());
+            var status = response.Status;
+            return status == HealthCheckResponse.Types.ServingStatus.Serving;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }
