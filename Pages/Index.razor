@@ -2,7 +2,12 @@
 @using RedBoxServices
 @using Shared
 @using Frontend.Client_Utility
+@using Google.Protobuf
 @using Google.Protobuf.WellKnownTypes
+@using System.Text
+@using Grpc.Core
+@using Status = Shared.Status
+@using System.Runtime.InteropServices.JavaScript
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -53,18 +58,61 @@
             </div>
         </div>
     </div>
-    <div class="ui bottom attached tab segment active" data-tab="d1">
-        <button @onclick="GetChats">Get Chats</button>
-        <div class="results">
-            <div class="ui sidebar inverted vertical menu">
-                @foreach (var c in _foundChats)
-                {
-                    <a class="item" id="@c.Id">@c.Members[0]</a>
-                }
+    <div class="ui padded equal height grid" data-tab="d1">
+        <div class="four wide column">
+            <div class="ui red inverted top attached center aligned segment">
+                <p>
+                    Chat
+                </p>
+            </div>
+            <div class="ui bottom attached very long scrolling segment " style="height: 100vh;">
+                    @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
+                    {
+                        <div class="ui attached segment" id="@c.Id" @onclick="() => CurrentChat(i)">
+                            @c.Members[0]
+                        </div>
+                    }
+                    @for(var i = 0;i < 40; i++)
+                    {
+                        <div class="ui attached segment">
+                            Test
+                        </div>   
+                    }
             </div>
         </div>
+        <div class="twelve wide column">
+            @if (_currentChat != null)
+            {
+                <div class="ui red inverted top attached segment">
+                    <p>
+                        @_currentChat.Members[0]
+                    </p>
+                </div>
+
+                <div class="ui bottom attached very long scrolling segment" style="height: 100vh;">
+                    @foreach (var m in _currentChat.Messages)
+                    {
+                        if (m.SenderId == _currentChat.Members[0])
+                        {
+                            <div class="ui red left aligned compact segment">
+                                @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                            </div>
+                        }
+                        else if (m.SenderId == _currentChat.Members[1])
+                        {
+                            <div class="ui compact blue right aligned segment">
+                                @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                            </div>
+                        }
+                    }
+                    <div class="ui button" @onclick="SendMessage">
+                        test
+                    </div>
+                </div>
+            }
+        </div>
     </div>
-    <div class="ui bottom attached tab segment" data-tab="d2">
+    <div class="ui bottom attached tab" data-tab="d2">
         <div>
             <div class="ui list">
                 @foreach (var u in _foundUsers)
@@ -93,16 +141,28 @@ else
 
 @code {
     bool _isError, _showNoUserFound, _isLoaded;
-    string _errorTitle, _errorMessage;
+    string _errorTitle, _errorMessage, _myId;
+    GrpcChat? _currentChat;
     List<UserInfo> _foundUsers = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
+    AsyncDuplexStreamingCall<ClientUpdate, ServerUpdate> _streamingCall;
 
     protected override async Task OnInitializedAsync()
     {
         if (!await ClientUtility.IsServerOn())
+        {
             NavigationManager.NavigateTo("/Error");
+            return;
+        }
         if (!await ClientUtility.IsLoggedIn())
+        {
             NavigationManager.NavigateTo("/Login");
+            return;
+        }
+        _streamingCall = ConversationServices.Sync();
+        var meResponse = await UserService.FetchMeAsync(new Empty());
+        _myId = meResponse.User.Id;
+        await GetChats();
         _isLoaded = true;
     }
 
@@ -196,6 +256,7 @@ else
         {
             case Status.Ok:
                 _foundChats = response.Chats.ToArray();
+                ReadStream();
                 break;
             case Status.Error:
                 break;
@@ -208,6 +269,105 @@ else
             default:
                 throw new ArgumentOutOfRangeException();
         }
+    }
+
+    private void ReadStream()
+    {
+            Task.Run(async () => 
+            {
+                try
+                {
+                    while (await _streamingCall.ResponseStream.MoveNext(default))
+                    {
+                        if (_streamingCall.ResponseStream.Current.Result.Status == Status.Ok)
+                        {
+                            switch (_streamingCall.ResponseStream.Current.OperationCase)
+                            {
+                                case ServerUpdate.OperationOneofCase.Chat:
+                                    break;
+                                case ServerUpdate.OperationOneofCase.Group:
+                                    break;
+                                case ServerUpdate.OperationOneofCase.ReceivedMessage:
+                                // da fare una funzione per case
+                                    if (_streamingCall.ResponseStream.Current.ReceivedMessage.Collection.HasChat)
+                                    {
+                                        var chatToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Chat;
+                                        var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
+                                        var updatedChat = Array.Find(_foundChats, chat => chat.Id == chatToUpdate);
+                                        updatedChat.Messages.Add(messageReceived);
+                                    }
+                                    else
+                                    {
+                                        var groupToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Group;
+                                        var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
+                                        // var updatedGroup = Array.Find(_foundChats, chat => chat.Id == groupToUpdate);
+                                        // updatedGroup.Messages.Add(messageReceived);
+                                    }
+                                    break;
+                                case ServerUpdate.OperationOneofCase.DeletedMessages:
+                                    break;
+                                case ServerUpdate.OperationOneofCase.None:
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    //Ignored
+                }
+            });
+    }
+
+    private async Task SendMessage()
+    {
+        try
+        {
+            await _streamingCall.RequestStream.WriteAsync(new ClientUpdate
+            {
+                SentMessage = new MessageOfCollection
+                {
+                    Collection = new Collection
+                    {
+                        Chat = _currentChat!.Id
+                    },
+                    Message = new GrpcMessage
+                    {
+                        EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
+                        Iv = ByteString.Empty
+                    }
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            //unused
+        }
+        
+        _currentChat.Messages.Add(new GrpcMessage
+        {
+            EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
+            SenderId = _myId
+        });
+    }
+    
+    private async Task CurrentChat(int chatIndex)
+    {
+        _currentChat = _foundChats[chatIndex];
+        /*
+        _currentChat.Messages.Add(new GrpcMessage
+        {
+            EncryptedText = ByteString.CopyFromUtf8("test sender"),
+            SenderId = _currentChat.Members[0]
+        });
+        _currentChat.Messages.Add(new GrpcMessage
+        {
+            EncryptedText = ByteString.CopyFromUtf8("test receiver"),
+            SenderId = _currentChat.Members[1]
+        });
+        */
     }
 
 }

@@ -34,8 +34,9 @@ public class ClientUtility
             var status = response.Status;
             return status == HealthCheckResponse.Types.ServingStatus.Serving;
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            Console.WriteLine(e.Message);
             return false;
         }
     }
