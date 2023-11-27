@@ -6,7 +6,7 @@ namespace Frontend.Channel_Utility;
 
 public class ChannelUtility
 {
-    private const string BackEndUrl = "http://localhost:5300";//"https://api.redbox.benaco2000.ovh";
+    private const string BackEndUrl = "https://api.redbox.benaco2000.ovh";
     private readonly HttpClient _httpClient;
     private GrpcChannel _channel;
 

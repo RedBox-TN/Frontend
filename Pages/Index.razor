@@ -8,6 +8,8 @@
 @using Grpc.Core
 @using Status = Shared.Status
 @using System.Runtime.InteropServices.JavaScript
+@using Frontend.Models
+@using Microsoft.AspNetCore.Components.Forms
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -60,12 +62,12 @@
     </div>
     <div class="ui padded equal height grid" data-tab="d1">
         <div class="four wide column">
-            <div class="ui red inverted top attached center aligned segment">
+            <div class="ui red inverted top attached center aligned segment" >
                 <p>
                     Chat
                 </p>
             </div>
-            <div class="ui bottom attached very long scrolling segment " style="height: 100vh;">
+            <div class="ui bottom attached very long scrolling segment">
                     @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
                         <div class="ui attached segment" id="@c.Id" @onclick="() => CurrentChat(i)">
@@ -89,7 +91,7 @@
                     </p>
                 </div>
 
-                <div class="ui bottom attached very long scrolling segment" style="height: 100vh;">
+                <div class="ui seamless attached very long scrolling segment" style="height: 93vh;">
                     @foreach (var m in _currentChat.Messages)
                     {
                         if (m.SenderId == _currentChat.Members[0])
@@ -105,9 +107,16 @@
                             </div>
                         }
                     }
-                    <div class="ui button" @onclick="SendMessage">
-                        test
-                    </div>
+                </div>
+                <div class="ui seamless bottom attached segment">
+                    <EditForm Model="@_messageModel" OnValidSubmit="@SendMessage">
+                        <div class="ui fluid action input">
+                            <InputText @bind-Value="_messageModel.message" placeholder="Digita messaggio..."/>
+                            <button type="submit" class="ui button">
+                                Invia
+                            </button>
+                        </div>
+                    </EditForm>
                 </div>
             }
         </div>
@@ -146,6 +155,11 @@ else
     List<UserInfo> _foundUsers = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
     AsyncDuplexStreamingCall<ClientUpdate, ServerUpdate> _streamingCall;
+
+    readonly Message _messageModel = new ()
+    {
+        message = null
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -323,34 +337,38 @@ else
 
     private async Task SendMessage()
     {
-        try
+        if (!string.IsNullOrWhiteSpace(_messageModel.message))
         {
-            await _streamingCall.RequestStream.WriteAsync(new ClientUpdate
+            try
             {
-                SentMessage = new MessageOfCollection
+                await _streamingCall.RequestStream.WriteAsync(new ClientUpdate
                 {
-                    Collection = new Collection
+                    SentMessage = new MessageOfCollection
                     {
-                        Chat = _currentChat!.Id
-                    },
-                    Message = new GrpcMessage
-                    {
-                        EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
-                        Iv = ByteString.Empty
+                        Collection = new Collection
+                        {
+                            Chat = _currentChat!.Id
+                        },
+                        Message = new GrpcMessage
+                        {
+                            EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
+                            Iv = ByteString.Empty
+                        }
                     }
-                }
+                });
+            }
+            catch (Exception e)
+            {
+                //unused
+            }
+
+            _currentChat.Messages.Add(new GrpcMessage
+            {
+                EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                SenderId = _myId
             });
         }
-        catch (Exception e)
-        {
-            //unused
-        }
-        
-        _currentChat.Messages.Add(new GrpcMessage
-        {
-            EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
-            SenderId = _myId
-        });
+        _messageModel.message = null;
     }
     
     private async Task CurrentChat(int chatIndex)
@@ -369,5 +387,4 @@ else
         });
         */
     }
-
 }
