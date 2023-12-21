@@ -60,65 +60,67 @@
             </div>
         </div>
     </div>
-    <div class="ui padded equal height grid" data-tab="d1">
-        <div class="four wide column">
-            <div class="ui red inverted top attached center aligned segment">
-                <p>
-                    Chat
-                </p>
-            </div>
-            <div class="ui bottom attached very long scrolling segment">
-                @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
-                {
-                    <div class="ui attached segment" id="@c.Id" @onclick="() => CurrentChat(i)">
-                        @c.Members[0]
-                    </div>
-                }
-                @for (var i = 0; i < 40; i++)
-                {
-                    <div class="ui attached segment">
-                        Test
-                    </div>
-                }
-            </div>
-        </div>
-        <div class="twelve wide column">
-            @if (_currentChat != null)
-            {
-                <div class="ui red inverted top attached segment">
+    <div class="ui bottom attached tab" data-tab="d1">
+        <div class="ui padded equal height grid">
+            <div class="four wide column">
+                <div class="ui red inverted top attached center aligned segment">
                     <p>
-                        @_currentChat.Members[0]
+                        Chat
                     </p>
                 </div>
-
-                <div class="ui seamless attached very long scrolling segment" style="height: 93vh;">
-                    @foreach (var m in _currentChat.Messages)
+                <div class="ui bottom attached very long scrolling segment">
+                    @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
-                        if (m.SenderId == _currentChat.Members[0])
-                        {
-                            <div class="ui red left aligned compact segment">
-                                @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
-                            </div>
-                        }
-                        else if (m.SenderId == _currentChat.Members[1])
-                        {
-                            <div class="ui compact blue right aligned segment">
-                                @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
-                            </div>
-                        }
+                        <div class="ui attached segment" id="@c.Id" @onclick="() => CurrentChat(i)">
+                            @c.Members[0]
+                        </div>
+                    }
+                    @for (var i = 0; i < 40; i++)
+                    {
+                        <div class="ui attached segment">
+                            Test
+                        </div>
                     }
                 </div>
-                <div class="ui seamless bottom attached segment">
-                    <EditForm Model="@_messageModel" OnValidSubmit="@SendMessage">
-                        <div class="ui fluid action input">
-                            <InputText @bind-Value="_messageModel.message" placeholder="Digita messaggio..."/>
-                            <button type="submit" class="ui button">
-                                Invia
-                            </button>
-                        </div>
-                    </EditForm>
-                </div>
-            }
+            </div>
+            <div class="twelve wide column">
+                @if (_currentChat != null)
+                {
+                    <div class="ui red inverted top attached segment">
+                        <p>
+                            @_currentChat.Members[0]
+                        </p>
+                    </div>
+
+                    <div class="ui seamless attached very long scrolling segment" style="height: 93vh;">
+                        @foreach (var m in _currentChat.Messages)
+                        {
+                            if (m.SenderId == _currentChat.Members[0])
+                            {
+                                <div class="ui red left aligned compact segment">
+                                    @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                                </div>
+                            }
+                            else if (m.SenderId == _currentChat.Members[1])
+                            {
+                                <div class="ui compact blue right aligned segment">
+                                    @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="ui seamless bottom attached segment">
+                        <EditForm Model="@_messageModel" OnValidSubmit="@SendMessage">
+                            <div class="ui fluid action input">
+                                <InputText @bind-Value="_messageModel.message" placeholder="Digita messaggio..."/>
+                                <button type="submit" class="ui button">
+                                    Invia
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                }
+            </div>
         </div>
     </div>
     <div class="ui bottom attached tab" data-tab="d2">
@@ -185,6 +187,7 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JsRuntime.InvokeVoidAsync("closeMessages");
+        await JsRuntime.InvokeVoidAsync("tabMenu");
     }
 
     private async Task FetchUsers()
@@ -342,7 +345,7 @@ else
             {
                 await ConversationServices.SendUpdateToServerAsync(new ClientUpdate
                 {
-                    SentMessage = new MessageOfCollection
+                        SentMessage = new MessageOfCollection
                     {
                         Collection = new Collection
                         {
@@ -389,3 +392,4 @@ else
     }
 
 }
+
