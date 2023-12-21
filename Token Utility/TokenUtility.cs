@@ -35,13 +35,15 @@ public class TokenUtility
     {
         while (!ct.IsCancellationRequested)
         {
-             _syncSessionStorage.SetItemAsString("Token", token.Token);
-             _syncSessionStorage.SetItem("Expiry", token.ExpiresAt);
+            _syncSessionStorage.SetItemAsString("Token", token.Token);
+            _syncSessionStorage.SetItem("Expiry", token.ExpiresAt);
             try
             {
                 await Task.Delay((int)(token.ExpiresAt - DateTimeOffset.Now.ToUnixTimeMilliseconds() - 60000), ct);
             }
-            catch (TaskCanceledException){}
+            catch (TaskCanceledException)
+            {
+            }
 
             token = _apiAuth.RefreshToken(new Empty(), cancellationToken: ct);
             _channelUtility.SetAuthToken(token.Token);
@@ -62,6 +64,8 @@ public class TokenUtility
     {
         if (_tokenTask == null) return;
         _tokenTaskCancel.Cancel();
-        while (_tokenTask.IsCanceled){}
+        while (_tokenTask.IsCanceled)
+        {
+        }
     }
 }

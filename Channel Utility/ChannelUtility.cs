@@ -23,6 +23,7 @@ public class ChannelUtility
     {
         return _channel;
     }
+
     public HttpClient GetHttpClient()
     {
         return _httpClient;

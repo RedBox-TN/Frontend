@@ -8,9 +8,9 @@ namespace Frontend.Client_Utility;
 public class ClientUtility
 {
     private readonly ChannelUtility _channelUtility;
+    private readonly Health.HealthClient _client;
     private readonly ISyncSessionStorageService _syncSessionStorage;
     private readonly TokenUtility _tokenUtility;
-    private readonly Health.HealthClient _client;
 
     public ClientUtility(ISyncSessionStorageService syncSessionStorage, ChannelUtility channelUtility,
         TokenUtility tokenUtility)
