@@ -17,6 +17,12 @@
 
 <head>
     <title>Messages</title>
+    <style>
+        body {
+          background-color: #F8F7F6;
+          overflow: hidden;
+        }
+    </style>
 </head>
 
 @if (_isLoaded)
@@ -95,7 +101,7 @@
                         </p>
                     </div>
 
-                    <div class="ui seamless attached very long scrolling segment" style="height: 75vh;">
+                    <div class="ui seamless attached very long scrolling segment" style="height: 78vh;">
                         @foreach (var m in _chats[_currentChat].Item2)
                         {
                             if (m.SenderId == _myId)
@@ -131,7 +137,7 @@
                         </p>
                     </div>
 
-                    <div class="ui seamless attached very long scrolling segment" style="height: 75vh;">
+                    <div class="ui seamless attached very long scrolling segment" style="height: 78vh;">
                         @foreach (var m in _groups[_currentGroup].Item2)
                         {
                             if (m.SenderId == _myId)
@@ -189,7 +195,7 @@
         </div>
     </div>
     <div class="ui bottom attached tab" data-tab="d3">
-        <EditForm class="ui form" Model="@_groupName" OnValidSubmit="@CreateGroup">
+        <EditForm id="checkBoxGroup" class="ui form" Model="@_groupName" OnValidSubmit="@CreateGroup">
             <DataAnnotationsValidator/>
             <InputText @bind-Value="_groupName.groupName" placeholder="Nome del Gruppo"/>
             <div class="grouped fields">
@@ -210,6 +216,7 @@
                 }
             </div>
             <button class="@_buttonClass" type="submit">Crea</button>
+            <button class="ui button" @onclick="ClearCheck">Reset</button>
             <div id="d3" class="ui page dimmer">
                 <div class="ui content">
                     <h2 class="ui inverted icon header">
@@ -280,6 +287,13 @@ else
         await JsRuntime.InvokeVoidAsync("tabMenu");
     }
 
+    private async Task ClearCheck()
+    {
+        await JsRuntime.InvokeVoidAsync("clearCheck");
+        _selectedUsersGroup.Clear();
+        _buttonClass = "ui disabled red button";
+    }
+    
     private async Task FetchUsers()
     {
         var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
@@ -418,7 +432,7 @@ else
             _buttonClass = "ui red button";
         }
     }
-
+    
     private async Task CreateGroup()
     {
         _selectedUsersGroup.Add(_myId);
@@ -433,7 +447,6 @@ else
         {
             case Status.Ok:
                 await JsRuntime.InvokeVoidAsync("openDimmer", "#d3");
-                _selectedUsersGroup.Clear();
                 await GetChatsGroups();
                 break;
             case Status.Error:
@@ -459,6 +472,7 @@ else
             default:
                 throw new ArgumentOutOfRangeException();
         }
+        await ClearCheck();
     }
 
     private async Task GetChatsGroups()
