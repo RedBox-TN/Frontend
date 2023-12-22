@@ -9,6 +9,7 @@
 @using Google.Protobuf.WellKnownTypes
 @using Frontend.Client_Utility
 @using System.Text
+@using System.Security.Cryptography
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -71,31 +72,31 @@
                 <div class="ui bottom attached very long scrolling segment">
                     @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
-                        <div class="ui attached segment" id="@c.Id" @onclick="() => CurrentChat(i)">
-                            @c.Members[0]
+                        <div class="ui attached segment" id="@c.Id" @onclick="() => SetCurrentChat(i)">
+                            @_foundChatsNames[i]
                         </div>
                     }
                 </div>
             </div>
             <div class="twelve wide column">
-                @if (_currentChat != null)
+                @if (!string.IsNullOrEmpty(_currentChat))
                 {
                     <div class="ui red inverted top attached segment">
                         <p>
-                            @_currentChat.Members[0]
+                            @_chats[_currentChat].Item1
                         </p>
                     </div>
 
                     <div class="ui seamless attached very long scrolling segment" style="height: 93vh;">
-                        @foreach (var m in _currentChat.Messages)
+                        @foreach (var m in _chats[_currentChat].Item2)
                         {
-                            if (m.SenderId == _currentChat.Members[0])
+                            if (m.SenderId == _myId)
                             {
                                 <div class="ui red left aligned compact segment">
                                     @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
                                 </div>
                             }
-                            else if (m.SenderId == _currentChat.Members[1])
+                            else
                             {
                                 <div class="ui compact blue right aligned segment">
                                     @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
@@ -145,10 +146,11 @@ else
 
 @code {
     bool _isError, _showNoUserFound, _isLoaded;
-    string _errorTitle, _errorMessage, _myId;
-    GrpcChat? _currentChat;
+    string _errorTitle, _errorMessage, _myId, _currentChat;
+    readonly Dictionary<string, (string, List<GrpcMessage>)> _chats = new();
     List<UserInfo> _foundUsers = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
+    List<string> _foundChatsNames = new ();
     AsyncServerStreamingCall<ServerUpdate> _streamingCall;
 
     readonly Message _messageModel = new()
@@ -284,51 +286,65 @@ else
         }
     }
 
-    private void ReadStream()
+    private async void ReadStream()
     {
-        Task.Run(async () =>
+        try
         {
-            try
+            while (await _streamingCall.ResponseStream.MoveNext(default))
             {
-                while (await _streamingCall.ResponseStream.MoveNext(default))
+                switch (_streamingCall.ResponseStream.Current.OperationCase)
                 {
-                    switch (_streamingCall.ResponseStream.Current.OperationCase)
-                    {
-                        case ServerUpdate.OperationOneofCase.Chat:
-                            break;
-                        case ServerUpdate.OperationOneofCase.Group:
-                            break;
-                        case ServerUpdate.OperationOneofCase.ReceivedMessage:
-                            // da fare una funzione per case
-                            if (_streamingCall.ResponseStream.Current.ReceivedMessage.Collection.HasChat)
+                    case ServerUpdate.OperationOneofCase.Chat:
+                        break;
+                    case ServerUpdate.OperationOneofCase.Group:
+                        break;
+                    case ServerUpdate.OperationOneofCase.ReceivedMessage:
+                        // da fare una funzione per case
+                        if (_streamingCall.ResponseStream.Current.ReceivedMessage.Collection.HasChat)
+                        {
+                            var chatToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Chat;
+                            var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
+                            if (_chats.ContainsKey(chatToUpdate))
                             {
-                                var chatToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Chat;
-                                var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
-                                var updatedChat = Array.Find(_foundChats, chat => chat.Id == chatToUpdate);
-                                updatedChat.Messages.Add(messageReceived);
+                                _chats[chatToUpdate].Item2.Add(messageReceived);
                             }
                             else
                             {
-                                var groupToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Group;
-                                var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
-                                // var updatedGroup = Array.Find(_foundChats, chat => chat.Id == groupToUpdate);
-                                // updatedGroup.Messages.Add(messageReceived);
+                                var response = await ConversationServices.GetChatFromIdAsync(new StringMessage
+                                {
+                                    Value = chatToUpdate
+                                }).ResponseAsync;
+                                var chat = response.Chat;
+                                var id = chat.Members[0] == _myId ? chat.Members[1] : chat.Members[0];
+                                var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+                                {
+                                    Id = id
+                                }).ResponseAsync;
+                                var name = nameResponse.User.Username;
+                                _chats.Add(chat.Id, (name, chat.Messages.Reverse().ToList()));
                             }
+                            StateHasChanged();
+                        }
+                        else
+                        {
+                            var groupToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Group;
+                            var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
+                            // var updatedGroup = Array.Find(_foundChats, chat => chat.Id == groupToUpdate);
+                            // updatedGroup.Messages.Add(messageReceived);
+                        }
 
-                            break;
-                        case ServerUpdate.OperationOneofCase.DeletedMessages:
-                            break;
-                        case ServerUpdate.OperationOneofCase.None:
-                            break;
-                    }
+                        break;
+                    case ServerUpdate.OperationOneofCase.DeletedMessages:
+                        break;
+                    case ServerUpdate.OperationOneofCase.None:
+                        break;
                 }
             }
-
-            catch (Exception)
-            {
-                //Ignored
-            }
-        });
+        }
+        catch (Exception)
+        {
+            //Ignored
+        }
     }
 
     private async Task SendMessage()
@@ -339,15 +355,15 @@ else
             {
                 await ConversationServices.SendUpdateToServerAsync(new ClientUpdate
                 {
-                        SentMessage = new MessageOfCollection
+                    SentMessage = new MessageOfCollection
                     {
                         Collection = new Collection
                         {
-                            Chat = _currentChat!.Id
+                            Chat = _currentChat
                         },
                         Message = new GrpcMessage
                         {
-                            EncryptedText = ByteString.CopyFromUtf8("i'm testing message sending"),
+                            EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
                             Iv = ByteString.Empty
                         }
                     }
@@ -358,9 +374,10 @@ else
                 //unused
             }
 
-            _currentChat.Messages.Add(new GrpcMessage
+            _chats[_currentChat].Item2.Add(new GrpcMessage
             {
                 EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                Iv = ByteString.Empty,
                 SenderId = _myId
             });
         }
@@ -368,10 +385,27 @@ else
         _messageModel.message = null;
     }
 
-    private async Task CurrentChat(int chatIndex)
+    private async Task SetCurrentChat(int chatIndex)
     {
-        _currentChat = _foundChats[chatIndex];
-        /*
+        var chatId = _foundChats[chatIndex].Id;
+        if (!_chats.ContainsKey(chatId))
+        {
+            var response = await ConversationServices.GetChatFromIdAsync(new StringMessage
+            {
+                Value = chatId
+            }).ResponseAsync;
+            var chat = response.Chat;
+            var id = chat.Members[0] == _myId ? chat.Members[1] : chat.Members[0];
+            var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+            {
+                Id = id
+            }).ResponseAsync;
+            var name = nameResponse.User.Username;
+            _chats.Add(chat.Id, (name, chat.Messages.Reverse().ToList()));
+        }
+
+        _currentChat = chatId;
+        /*_ch
         _currentChat.Messages.Add(new GrpcMessage
         {
             EncryptedText = ByteString.CopyFromUtf8("test sender"),
@@ -386,4 +420,3 @@ else
     }
 
 }
-
