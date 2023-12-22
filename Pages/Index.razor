@@ -9,7 +9,6 @@
 @using Google.Protobuf.WellKnownTypes
 @using Frontend.Client_Utility
 @using System.Text
-@using System.Security.Cryptography
 @inject ClientUtility ClientUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
@@ -52,6 +51,9 @@
         <a class="item" data-tab="d2" @onclick="FetchUsers">
             Nuova Chat
         </a>
+        <a class="item" data-tab="d3" @onclick="FetchUsersGroup">
+            Nuovo Gruppo
+        </a>
         <div class="right menu">
             <div class="item">
                 <div class="ui transparent icon input">
@@ -69,11 +71,17 @@
                         Chat
                     </p>
                 </div>
-                <div class="ui bottom attached very long scrolling segment">
+                <div class="ui bottom attached very long scrolling segment" style="height: 85vh">
                     @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
                         <div class="ui attached segment" id="@c.Id" @onclick="() => SetCurrentChat(i)">
-                            @_foundChatsNames[i]
+                            @c.Id
+                        </div>
+                    }
+                    @foreach (var (g, i) in _foundGroups.Select((g, i) => (g, i)))
+                    {
+                        <div class="ui attached segment" id="@g.Id" @onclick="() => SetCurrentGroup(i)">
+                            @g.Name
                         </div>
                     }
                 </div>
@@ -87,8 +95,44 @@
                         </p>
                     </div>
 
-                    <div class="ui seamless attached very long scrolling segment" style="height: 93vh;">
+                    <div class="ui seamless attached very long scrolling segment" style="height: 75vh;">
                         @foreach (var m in _chats[_currentChat].Item2)
+                        {
+                            if (m.SenderId == _myId)
+                            {
+                                <div class="ui compact red right aligned segment">
+                                    @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="ui compact blue left aligned segment">
+                                    @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="ui seamless bottom attached segment">
+                        <EditForm Model="@_messageModel" OnValidSubmit="@SendMessage">
+                            <div class="ui fluid action input">
+                                <InputText @bind-Value="_messageModel.message" placeholder="Digita messaggio..."/>
+                                <button type="submit" class="ui button">
+                                    Invia
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_currentGroup))
+                {
+                    <div class="ui red inverted top attached segment">
+                        <p>
+                            @_groups[_currentGroup].Item1
+                        </p>
+                    </div>
+
+                    <div class="ui seamless attached very long scrolling segment" style="height: 75vh;">
+                        @foreach (var m in _groups[_currentGroup].Item2)
                         {
                             if (m.SenderId == _myId)
                             {
@@ -135,6 +179,46 @@
                 }
             </div>
         </div>
+        <div id="d2" class="ui page dimmer">
+            <div class="ui content">
+                <h2 class="ui inverted icon header">
+                    <i class="check circle icon"></i>
+                    La chat è stata creata
+                </h2>
+            </div>
+        </div>
+    </div>
+    <div class="ui bottom attached tab" data-tab="d3">
+        <EditForm class="ui form" Model="@_groupName" OnValidSubmit="@CreateGroup">
+            <DataAnnotationsValidator/>
+            <InputText @bind-Value="_groupName.groupName" placeholder="Nome del Gruppo"/>
+            <div class="grouped fields">
+                @foreach (var u in _foundUsersGroups)
+                {
+                    <div class="ui compact invisible checkbox">
+                        <input type="checkbox" id="@u.Id" name="@u.Name" @onclick="() => SelectGroupMembers(u.Id)">
+                        <label for="@u.Id" class="item ui green message">
+                            <i class="huge user circle outline icon"></i>
+                            <div class="content">
+                                <div class="header">@u.Name @u.Surname</div>
+                                <div class="description">
+                                    <p>@u.Username: @u.Biography</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                }
+            </div>
+            <button class="@_buttonClass" type="submit">Crea</button>
+            <div id="d3" class="ui page dimmer">
+                <div class="ui content">
+                    <h2 class="ui inverted icon header">
+                        <i class="check circle icon"></i>
+                        Il gruppo ... è stato creato
+                    </h2>
+                </div>
+            </div>
+        </EditForm>
     </div>
 }
 else
@@ -146,16 +230,25 @@ else
 
 @code {
     bool _isError, _showNoUserFound, _isLoaded;
-    string _errorTitle, _errorMessage, _myId, _currentChat;
+    string _errorTitle, _errorMessage, _myId, _currentChat, _currentGroup;
     readonly Dictionary<string, (string, List<GrpcMessage>)> _chats = new();
+    readonly Dictionary<string, (string, List<GrpcMessage>)> _groups = new();
     List<UserInfo> _foundUsers = new();
+    List<GrpcUser> _foundUsersGroups = new();
+    readonly HashSet<string> _selectedUsersGroup = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
-    List<string> _foundChatsNames = new ();
+    GrpcGroup[] _foundGroups = Array.Empty<GrpcGroup>();
     AsyncServerStreamingCall<ServerUpdate> _streamingCall;
+    string _buttonClass = "ui disabled red button";
 
     readonly Message _messageModel = new()
     {
         message = null
+    };
+
+    readonly GroupName _groupName = new()
+    {
+        groupName = null
     };
 
     protected override async Task OnInitializedAsync()
@@ -175,7 +268,8 @@ else
         _streamingCall = ConversationServices.GetUpdateFromServer(new Empty());
         var meResponse = await UserService.FetchMeAsync(new Empty());
         _myId = meResponse.User.Id;
-        await GetChats();
+        await GetChatsGroups();
+        ReadStream();
         _isLoaded = true;
     }
 
@@ -227,6 +321,48 @@ else
         }
     }
 
+    private async Task FetchUsersGroup()
+    {
+        var response = await UserService.FetchAllUsersAsync(new Empty());
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                if (response.User.Count > 0)
+                {
+                    _foundUsersGroups = response.User.ToList();
+                    _foundUsersGroups.RemoveAll(g => g.Id == _myId);
+                }
+                else
+                {
+                    _showNoUserFound = true;
+                }
+
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Errore del backend";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Paramentri mancanti";
+                _errorMessage = "la richiesta inviata è incompleta";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Messaggio troppo pesante";
+                _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Paramentri invalidi";
+                _errorMessage = "la richiesta inviata contine parametri invalidi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
     private async Task CreateChat(string userId)
     {
         var response = await ConversationServices.CreateChatAsync(new StringMessage
@@ -238,6 +374,8 @@ else
         {
             case Status.Ok:
                 _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
+                await JsRuntime.InvokeVoidAsync("openDimmer", "#d2");
+                await GetChatsGroups();
                 break;
             case Status.Error:
                 _isError = true;
@@ -264,14 +402,90 @@ else
         }
     }
 
-    private async Task GetChats()
+    private async Task SelectGroupMembers(string id)
+    {
+        if (_selectedUsersGroup.Contains(id))
+        {
+            _selectedUsersGroup.Remove(id);
+            if (_selectedUsersGroup.Count == 0)
+            {
+                _buttonClass = "ui disabled red button";
+            }
+        }
+        else
+        {
+            _selectedUsersGroup.Add(id);
+            _buttonClass = "ui red button";
+        }
+    }
+
+    private async Task CreateGroup()
+    {
+        _selectedUsersGroup.Add(_myId);
+        var response = await ConversationServices.CreateGroupAsync(new GroupCreationRequest
+        {
+            Admins = { _myId },
+            Members = { _selectedUsersGroup },
+            Name = _groupName.groupName
+        });
+
+        switch (response.Result.Status)
+        {
+            case Status.Ok:
+                await JsRuntime.InvokeVoidAsync("openDimmer", "#d3");
+                _selectedUsersGroup.Clear();
+                await GetChatsGroups();
+                break;
+            case Status.Error:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = response.Result.Error;
+                break;
+            case Status.MissingParameters:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+                break;
+            case Status.AttachmentTooBig:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta era troppo pesante";
+                break;
+            case Status.InvalidParameter:
+                _isError = true;
+                _errorTitle = "Impossibile creare la chat";
+                _errorMessage = "La richiesta contiene dei paramentri non validi";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private async Task GetChatsGroups()
     {
         var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
         switch (response.Result.Status)
         {
             case Status.Ok:
                 _foundChats = response.Chats.ToArray();
-                ReadStream();
+                break;
+            case Status.Error:
+                break;
+            case Status.MissingParameters:
+                break;
+            case Status.AttachmentTooBig:
+                break;
+            case Status.InvalidParameter:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+        var responseGroups = await ConversationServices.GetAllUserGroupsAsync(new Empty());
+        switch (responseGroups.Result.Status)
+        {
+            case Status.Ok:
+                _foundGroups = responseGroups.Groups.ToArray();
                 break;
             case Status.Error:
                 break;
@@ -323,14 +537,28 @@ else
                                 var name = nameResponse.User.Username;
                                 _chats.Add(chat.Id, (name, chat.Messages.Reverse().ToList()));
                             }
+
                             StateHasChanged();
                         }
                         else
                         {
                             var groupToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Group;
                             var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
-                            // var updatedGroup = Array.Find(_foundChats, chat => chat.Id == groupToUpdate);
-                            // updatedGroup.Messages.Add(messageReceived);
+                            if (_groups.ContainsKey(groupToUpdate))
+                            {
+                                _groups[groupToUpdate].Item2.Add(messageReceived);
+                            }
+                            else
+                            {
+                                var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
+                                {
+                                    Value = groupToUpdate
+                                }).ResponseAsync;
+                                var group = response.Group;
+                                _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
+                            }
+
+                            StateHasChanged();
                         }
 
                         break;
@@ -353,21 +581,42 @@ else
         {
             try
             {
-                await ConversationServices.SendUpdateToServerAsync(new ClientUpdate
+                if (!string.IsNullOrEmpty(_currentChat))
                 {
-                    SentMessage = new MessageOfCollection
+                    await ConversationServices.SendUpdateToServerAsync(new ClientUpdate
                     {
-                        Collection = new Collection
+                        SentMessage = new MessageOfCollection
                         {
-                            Chat = _currentChat
-                        },
-                        Message = new GrpcMessage
-                        {
-                            EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
-                            Iv = ByteString.Empty
+                            Collection = new Collection
+                            {
+                                Chat = _currentChat
+                            },
+                            Message = new GrpcMessage
+                            {
+                                EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                                Iv = ByteString.Empty
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                else if (!string.IsNullOrEmpty(_currentGroup))
+                {
+                    await ConversationServices.SendUpdateToServerAsync(new ClientUpdate
+                    {
+                        SentMessage = new MessageOfCollection
+                        {
+                            Collection = new Collection
+                            {
+                                Group = _currentGroup
+                            },
+                            Message = new GrpcMessage
+                            {
+                                EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                                Iv = ByteString.Empty
+                            }
+                        }
+                    });
+                }
             }
             catch (Exception e)
             {
@@ -405,18 +654,24 @@ else
         }
 
         _currentChat = chatId;
-        /*_ch
-        _currentChat.Messages.Add(new GrpcMessage
+        _currentGroup = "";
+    }
+
+    private async Task SetCurrentGroup(int chatIndex)
+    {
+        var groupId = _foundGroups[chatIndex].Id;
+        if (!_groups.ContainsKey(groupId))
         {
-            EncryptedText = ByteString.CopyFromUtf8("test sender"),
-            SenderId = _currentChat.Members[0]
-        });
-        _currentChat.Messages.Add(new GrpcMessage
-        {
-            EncryptedText = ByteString.CopyFromUtf8("test receiver"),
-            SenderId = _currentChat.Members[1]
-        });
-        */
+            var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
+            {
+                Value = groupId
+            }).ResponseAsync;
+            var group = response.Group;
+            _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
+        }
+
+        _currentChat = "";
+        _currentGroup = groupId;
     }
 
 }
