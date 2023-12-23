@@ -245,7 +245,6 @@ else
     readonly HashSet<string> _selectedUsersGroup = new();
     GrpcChat[] _foundChats = Array.Empty<GrpcChat>();
     GrpcGroup[] _foundGroups = Array.Empty<GrpcGroup>();
-    AsyncServerStreamingCall<ServerUpdate> _streamingCall;
     string _buttonClass = "ui disabled red button";
 
     readonly Message _messageModel = new()
@@ -272,15 +271,14 @@ else
             return;
         }
 
-        _streamingCall = ConversationServices.GetUpdateFromServer(new Empty());
         var meResponse = await UserService.FetchMeAsync(new Empty());
         _myId = meResponse.User.Id;
-        await GetChatsGroups();
-        ReadStream();
+        await GetChatsGroupsAsync();
         _isLoaded = true;
+        GetUpdateFromServerAsync();
     }
 
-    // Function callend on every dynamic update
+    // Function called on every dynamic update
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await JsRuntime.InvokeVoidAsync("closeMessages");
@@ -293,7 +291,7 @@ else
         _selectedUsersGroup.Clear();
         _buttonClass = "ui disabled red button";
     }
-    
+
     private async Task FetchUsers()
     {
         var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
@@ -317,7 +315,7 @@ else
                 break;
             case Status.MissingParameters:
                 _isError = true;
-                _errorTitle = "Paramentri mancanti";
+                _errorTitle = "Parametri mancanti";
                 _errorMessage = "la richiesta inviata è incompleta";
                 break;
             case Status.AttachmentTooBig:
@@ -327,8 +325,8 @@ else
                 break;
             case Status.InvalidParameter:
                 _isError = true;
-                _errorTitle = "Paramentri invalidi";
-                _errorMessage = "la richiesta inviata contine parametri invalidi";
+                _errorTitle = "Parametri invalidi";
+                _errorMessage = "la richiesta inviata contiene parametri invalidi";
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -359,7 +357,7 @@ else
                 break;
             case Status.MissingParameters:
                 _isError = true;
-                _errorTitle = "Paramentri mancanti";
+                _errorTitle = "Parametri mancanti";
                 _errorMessage = "la richiesta inviata è incompleta";
                 break;
             case Status.AttachmentTooBig:
@@ -369,8 +367,8 @@ else
                 break;
             case Status.InvalidParameter:
                 _isError = true;
-                _errorTitle = "Paramentri invalidi";
-                _errorMessage = "la richiesta inviata contine parametri invalidi";
+                _errorTitle = "Parametri invalidi";
+                _errorMessage = "la richiesta inviata contiene parametri invalidi";
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -389,7 +387,7 @@ else
             case Status.Ok:
                 _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
                 await JsRuntime.InvokeVoidAsync("openDimmer", "#d2");
-                await GetChatsGroups();
+                await GetChatsGroupsAsync();
                 break;
             case Status.Error:
                 _isError = true;
@@ -409,7 +407,7 @@ else
             case Status.InvalidParameter:
                 _isError = true;
                 _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta contiene dei paramentri non validi";
+                _errorMessage = "La richiesta contiene dei parametri non validi";
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -418,7 +416,7 @@ else
 
     private async Task SelectGroupMembers(string id)
     {
-        if (_selectedUsersGroup.Contains(id))
+        if (!_selectedUsersGroup.Add(id))
         {
             _selectedUsersGroup.Remove(id);
             if (_selectedUsersGroup.Count == 0)
@@ -428,11 +426,10 @@ else
         }
         else
         {
-            _selectedUsersGroup.Add(id);
             _buttonClass = "ui red button";
         }
     }
-    
+
     private async Task CreateGroup()
     {
         _selectedUsersGroup.Add(_myId);
@@ -447,7 +444,7 @@ else
         {
             case Status.Ok:
                 await JsRuntime.InvokeVoidAsync("openDimmer", "#d3");
-                await GetChatsGroups();
+                await GetChatsGroupsAsync();
                 break;
             case Status.Error:
                 _isError = true;
@@ -467,15 +464,16 @@ else
             case Status.InvalidParameter:
                 _isError = true;
                 _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta contiene dei paramentri non validi";
+                _errorMessage = "La richiesta contiene dei parametri non validi";
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
+
         await ClearCheck();
     }
 
-    private async Task GetChatsGroups()
+    private async Task GetChatsGroupsAsync()
     {
         var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
         switch (response.Result.Status)
@@ -514,13 +512,14 @@ else
         }
     }
 
-    private async void ReadStream()
+    private async Task GetUpdateFromServerAsync()
     {
         try
         {
-            while (await _streamingCall.ResponseStream.MoveNext(default))
+            var streamingCall = ConversationServices.GetUpdateFromServer(new Empty());
+            await foreach (var r in streamingCall.ResponseStream.ReadAllAsync())
             {
-                switch (_streamingCall.ResponseStream.Current.OperationCase)
+                switch (r.OperationCase)
                 {
                     case ServerUpdate.OperationOneofCase.Chat:
                         break;
@@ -528,13 +527,13 @@ else
                         break;
                     case ServerUpdate.OperationOneofCase.ReceivedMessage:
                         // da fare una funzione per case
-                        if (_streamingCall.ResponseStream.Current.ReceivedMessage.Collection.HasChat)
+                        if (r.ReceivedMessage.Collection.HasChat)
                         {
-                            var chatToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Chat;
-                            var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
-                            if (_chats.ContainsKey(chatToUpdate))
+                            var chatToUpdate = r.ReceivedMessage.Collection.Chat;
+                            var messageReceived = r.ReceivedMessage.Message;
+                            if (_chats.TryGetValue(chatToUpdate, out var c))
                             {
-                                _chats[chatToUpdate].Item2.Add(messageReceived);
+                                c.Item2.Add(messageReceived);
                             }
                             else
                             {
@@ -556,11 +555,11 @@ else
                         }
                         else
                         {
-                            var groupToUpdate = _streamingCall.ResponseStream.Current.ReceivedMessage.Collection.Group;
-                            var messageReceived = _streamingCall.ResponseStream.Current.ReceivedMessage.Message;
-                            if (_groups.ContainsKey(groupToUpdate))
+                            var groupToUpdate = r.ReceivedMessage.Collection.Group;
+                            var messageReceived = r.ReceivedMessage.Message;
+                            if (_groups.TryGetValue(groupToUpdate, out var g))
                             {
-                                _groups[groupToUpdate].Item2.Add(messageReceived);
+                                g.Item2.Add(messageReceived);
                             }
                             else
                             {
@@ -580,6 +579,8 @@ else
                         break;
                     case ServerUpdate.OperationOneofCase.None:
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
         }
@@ -632,9 +633,9 @@ else
                     });
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                //unused
+                // ignored
             }
 
             _chats[_currentChat].Item2.Add(new GrpcMessage

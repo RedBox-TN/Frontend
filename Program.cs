@@ -15,7 +15,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+	BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
 });
 
 var channel = new ChannelUtility();
@@ -25,7 +25,7 @@ builder.Services.AddSingleton(channel);
 builder.Services.AddSingleton(new AuthenticationGrpcService.AuthenticationGrpcServiceClient(channel.GetChannel()));
 builder.Services.AddSingleton(new GrpcConversationServices.GrpcConversationServicesClient(channel.GetChannel()));
 builder.Services.AddSingleton(
-    new GrpcSupervisedConversationService.GrpcSupervisedConversationServiceClient(channel.GetChannel()));
+	new GrpcSupervisedConversationService.GrpcSupervisedConversationServiceClient(channel.GetChannel()));
 builder.Services.AddSingleton(new GrpcAccountServices.GrpcAccountServicesClient(channel.GetChannel()));
 builder.Services.AddSingleton(new GrpcAdminServices.GrpcAdminServicesClient(channel.GetChannel()));
 
