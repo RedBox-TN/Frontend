@@ -83,7 +83,7 @@
                     @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
                         <div class="ui attached segment" id="@c.Id" @onclick="() => SetCurrentChat(i)">
-                            @GetNameOfChat(c.Members);
+                            @_currentChatNames[i]
                         </div>
                     }
                     @foreach (var (g, i) in _foundGroups.Select((g, i) => (g, i)))
@@ -252,6 +252,7 @@ else
     string _errorTitle, _errorMessage, _myId, _currentChat, _currentGroup;
     readonly Dictionary<string, (string, List<GrpcMessage>)> _chats = new();
     readonly Dictionary<string, (string, List<GrpcMessage>)> _groups = new();
+    List<string> _currentChatNames = new (10);
     List<UserInfo> _foundUsers = new();
     List<GrpcUser> _foundUsersGroups = new();
     readonly HashSet<string> _selectedUsersGroup = new();
@@ -498,6 +499,10 @@ else
         {
             case Status.Ok:
                 _foundChats = response.Chats.ToArray();
+                for (var i = 0; i < _foundChats.Length; i++)
+                {
+                    _currentChatNames.Add(await GetNameOfChat(_foundChats[i].Members));
+                }
                 break;
             case Status.Error:
                 break;
@@ -631,6 +636,12 @@ else
                             }
                         }
                     });
+                    _chats[_currentChat].Item2.Add(new GrpcMessage
+                    {
+                        EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                        Iv = ByteString.Empty,
+                        SenderId = _myId
+                    });
                 }
                 else if (!string.IsNullOrEmpty(_currentGroup))
                 {
@@ -649,21 +660,19 @@ else
                             }
                         }
                     });
+                    _groups[_currentGroup].Item2.Add(new GrpcMessage
+                    {
+                        EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
+                        Iv = ByteString.Empty,
+                        SenderId = _myId
+                    });
                 }
             }
             catch (Exception)
             {
                 // ignored
             }
-
-            _chats[_currentChat].Item2.Add(new GrpcMessage
-            {
-                EncryptedText = ByteString.CopyFromUtf8(_messageModel.message),
-                Iv = ByteString.Empty,
-                SenderId = _myId
-            });
         }
-
         _messageModel.message = null;
     }
 
@@ -707,13 +716,13 @@ else
         _currentGroup = groupId;
     }
 
-    private string GetNameOfChat(IReadOnlyList<string> users)
+    private async Task<string> GetNameOfChat(IReadOnlyList<string> users)
     {
         var id = users[0] == _myId ? users[1] : users[0];
-        var nameResponse = UserService.FetchUser(new GrpcUserFetch
+        var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
         {
             Id = id
         });
-        return $"{nameResponse.User.Name} {nameResponse.User.Surname}";
+        return ($"{nameResponse.User.Name} {nameResponse.User.Surname}");
     }
 }

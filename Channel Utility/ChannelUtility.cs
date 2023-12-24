@@ -41,6 +41,7 @@ public class ChannelUtility
 	public void UnsetAuthToken()
 	{
 		_httpClient.DefaultRequestHeaders.Authorization = null;
+		_channel.Dispose();
 		_channel = GrpcChannel.ForAddress(BackEndUrl, new GrpcChannelOptions
 		{
 			HttpClient = _httpClient
