@@ -2,5 +2,5 @@ namespace Frontend.Models;
 
 public class Message
 {
-	public string? message { get; set; }
+    public string? message { get; set; }
 }
