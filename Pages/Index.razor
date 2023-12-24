@@ -1,15 +1,15 @@
 @page "/"
 @using Status = Shared.Status
-@using RedBoxServices
-@using Shared
 @using Grpc.Core
 @using Microsoft.AspNetCore.Components.Forms
+@using RedBoxServices
+@using Shared
 @using Frontend.Models
+@using Frontend.Token_Utility
 @using Google.Protobuf
 @using Google.Protobuf.WellKnownTypes
 @using Frontend.Client_Utility
 @using System.Text
-@using Frontend.Token_Utility
 @inject ClientUtility ClientUtility
 @inject TokenUtility TokenUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
@@ -150,14 +150,14 @@
                             }
                             else
                             {
-                                    <div class="ui compact blue segment">
-                                        <div class="content">
-                                            <h4 class="ui header">
-                                                @_groupUsernames[m.SenderId]
-                                            </h4>
-                                            @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
-                                        </div>
+                                <div class="ui compact blue segment">
+                                    <div class="content">
+                                        <h4 class="ui header">
+                                            @_groupUsernames[m.SenderId]
+                                        </h4>
+                                        @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
                                     </div>
+                                </div>
                             }
                         }
                     </div>
@@ -257,8 +257,8 @@ else
     string _errorTitle, _errorMessage, _myId, _currentChat, _currentGroup;
     readonly Dictionary<string, (string, List<GrpcMessage>)> _chats = new();
     readonly Dictionary<string, (string, List<GrpcMessage>)> _groups = new();
-    readonly Dictionary<String, string> _groupUsernames = new();
-    List<string> _currentChatNames = new (10);
+    readonly Dictionary<string, string> _groupUsernames = new();
+    readonly List<string> _currentChatNames = new(10);
     List<UserInfo> _foundUsers = new();
     List<GrpcUser> _foundUsersGroups = new();
     readonly HashSet<string> _selectedUsersGroup = new();
@@ -547,6 +547,7 @@ else
                     {
                         _currentChatNames.Add(await GetNameOfChat(_foundChats[i].Members));
                     }
+
                     break;
                 case Status.Error:
                     break;
@@ -726,6 +727,7 @@ else
                 _errorMessage = e.Message;
             }
         }
+
         _messageModel.message = null;
     }
 
@@ -773,7 +775,6 @@ else
             var group = response.Group;
             if (!_groups.ContainsKey(groupId))
             {
-                
                 _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
             }
 
@@ -789,7 +790,7 @@ else
                     _groupUsernames.Add(gid, username);
                 }
             }
-            
+
             _currentChat = "";
             _currentGroup = groupId;
         }
@@ -810,7 +811,7 @@ else
             {
                 Id = id
             });
-            return ($"{nameResponse.User.Name} {nameResponse.User.Surname}");
+            return $"{nameResponse.User.Name} {nameResponse.User.Surname}";
         }
         catch (RpcException e)
         {
@@ -820,4 +821,5 @@ else
             throw;
         }
     }
+
 }
