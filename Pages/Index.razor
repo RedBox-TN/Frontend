@@ -150,9 +150,14 @@
                             }
                             else
                             {
-                                <div class="ui compact blue right aligned segment">
-                                    @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
-                                </div>
+                                    <div class="ui compact blue segment">
+                                        <div class="content">
+                                            <h4 class="ui header">
+                                                @_groupUsernames[m.SenderId]
+                                            </h4>
+                                            @Encoding.UTF8.GetString(m.EncryptedText.ToByteArray())
+                                        </div>
+                                    </div>
                             }
                         }
                     </div>
@@ -252,6 +257,7 @@ else
     string _errorTitle, _errorMessage, _myId, _currentChat, _currentGroup;
     readonly Dictionary<string, (string, List<GrpcMessage>)> _chats = new();
     readonly Dictionary<string, (string, List<GrpcMessage>)> _groups = new();
+    readonly Dictionary<String, string> _groupUsernames = new();
     List<string> _currentChatNames = new (10);
     List<UserInfo> _foundUsers = new();
     List<GrpcUser> _foundUsersGroups = new();
@@ -760,16 +766,30 @@ else
         try
         {
             var groupId = _foundGroups[chatIndex].Id;
+            var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
+            {
+                Value = groupId
+            }).ResponseAsync;
+            var group = response.Group;
             if (!_groups.ContainsKey(groupId))
             {
-                var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
-                {
-                    Value = groupId
-                }).ResponseAsync;
-                var group = response.Group;
+                
                 _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
             }
 
+            foreach (var gid in group.Members)
+            {
+                if (!_groupUsernames.ContainsKey(gid))
+                {
+                    var usernamesResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+                    {
+                        Id = gid
+                    });
+                    var username = usernamesResponse.User.Username;
+                    _groupUsernames.Add(gid, username);
+                }
+            }
+            
             _currentChat = "";
             _currentGroup = groupId;
         }
