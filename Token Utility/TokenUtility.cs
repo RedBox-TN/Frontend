@@ -14,7 +14,7 @@ public class TokenUtility
 	private Task? _tokenTask;
 
 	public TokenUtility(AuthenticationGrpcService.AuthenticationGrpcServiceClient apiAuth,
-		ISessionStorageService sessionStorage, ChannelUtility channelUtility,
+		ChannelUtility channelUtility,
 		ISyncSessionStorageService syncSessionStorage)
 	{
 		_apiAuth = apiAuth;
@@ -43,7 +43,6 @@ public class TokenUtility
 			}
 			catch (TaskCanceledException)
 			{
-				
 			}
 
 			token = _apiAuth.RefreshToken(new Empty(), cancellationToken: ct);

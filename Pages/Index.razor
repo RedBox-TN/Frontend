@@ -83,7 +83,7 @@
                     @foreach (var (c, i) in _foundChats.Select((c, i) => (c, i)))
                     {
                         <div class="ui attached segment" id="@c.Id" @onclick="() => SetCurrentChat(i)">
-                            @c.Id
+                            @GetNameOfChat(c.Members);
                         </div>
                     }
                     @foreach (var (g, i) in _foundGroups.Select((g, i) => (g, i)))
@@ -707,4 +707,13 @@ else
         _currentGroup = groupId;
     }
 
+    private string GetNameOfChat(IReadOnlyList<string> users)
+    {
+        var id = users[0] == _myId ? users[1] : users[0];
+        var nameResponse = UserService.FetchUser(new GrpcUserFetch
+        {
+            Id = id
+        });
+        return $"{nameResponse.User.Name} {nameResponse.User.Surname}";
+    }
 }

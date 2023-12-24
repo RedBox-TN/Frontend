@@ -9,15 +9,11 @@ public class ClientUtility
 {
 	private readonly ChannelUtility _channelUtility;
 	private readonly Health.HealthClient _client;
-	private readonly ISyncSessionStorageService _syncSessionStorage;
-	private readonly TokenUtility _tokenUtility;
 
-	public ClientUtility(ISyncSessionStorageService syncSessionStorage, ChannelUtility channelUtility,
-		TokenUtility tokenUtility)
+
+	public ClientUtility(ChannelUtility channelUtility)
 	{
-		_syncSessionStorage = syncSessionStorage;
 		_channelUtility = channelUtility;
-		_tokenUtility = tokenUtility;
 		_client = new Health.HealthClient(_channelUtility.GetChannel());
 	}
 
