@@ -1,0 +1,39 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main"]
+  workflow_dispatch:
+
+jobs:
+  Build_Release:
+    runs-on: [ self-hosted, linux ]
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+      
+      - name: build Frontend
+        id: build_redbox
+        shell: bash
+        run: |
+          dotnet publish -c Release Frontend.csproj -o /release/redbox
+          echo "Frontend built"
+
+      - name: Compress
+        id: compress
+        shell: bash
+        run: |
+          tar cf - /release/ | xz -9 -T 0 - > /redbox_frontend.txz
+          rm -rf /release/
+      
+      - name: Publish
+        id: publish
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /redbox_frontend.txz
+          asset_name: RedBox_Frontend_WASM.txz
+          overwrite: true
+          body: "Frontend di RedBox compilato in web assembly con modalità release"
+          release_name: "RedBox Frontend"
