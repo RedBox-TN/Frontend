@@ -313,123 +313,150 @@ else
 
     private async Task FetchUsers()
     {
-        var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
-        switch (response.Result.Status)
+        try
         {
-            case Status.Ok:
-                if (response.Users.Count > 0)
-                {
-                    _foundUsers = response.Users.ToList();
-                }
-                else
-                {
-                    _showNoUserFound = true;
-                }
+            var response = await ConversationServices.GetUsersForConversationAsync(new Empty());
+            switch (response.Result.Status)
+            {
+                case Status.Ok:
+                    if (response.Users.Count > 0)
+                    {
+                        _foundUsers = response.Users.ToList();
+                    }
+                    else
+                    {
+                        _showNoUserFound = true;
+                    }
 
-                break;
-            case Status.Error:
-                _isError = true;
-                _errorTitle = "Errore del backend";
-                _errorMessage = response.Result.Error;
-                break;
-            case Status.MissingParameters:
-                _isError = true;
-                _errorTitle = "Parametri mancanti";
-                _errorMessage = "la richiesta inviata è incompleta";
-                break;
-            case Status.AttachmentTooBig:
-                _isError = true;
-                _errorTitle = "Messaggio troppo pesante";
-                _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
-                break;
-            case Status.InvalidParameter:
-                _isError = true;
-                _errorTitle = "Parametri invalidi";
-                _errorMessage = "la richiesta inviata contiene parametri invalidi";
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+                    break;
+                case Status.Error:
+                    _isError = true;
+                    _errorTitle = "Errore del backend";
+                    _errorMessage = response.Result.Error;
+                    break;
+                case Status.MissingParameters:
+                    _isError = true;
+                    _errorTitle = "Parametri mancanti";
+                    _errorMessage = "la richiesta inviata è incompleta";
+                    break;
+                case Status.AttachmentTooBig:
+                    _isError = true;
+                    _errorTitle = "Messaggio troppo pesante";
+                    _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+                    break;
+                case Status.InvalidParameter:
+                    _isError = true;
+                    _errorTitle = "Parametri invalidi";
+                    _errorMessage = "la richiesta inviata contiene parametri invalidi";
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
         }
     }
 
     private async Task FetchUsersGroup()
     {
-        var response = await UserService.FetchAllUsersAsync(new Empty());
-        switch (response.Result.Status)
+        try
         {
-            case Status.Ok:
-                if (response.User.Count > 0)
-                {
-                    _foundUsersGroups = response.User.ToList();
-                    _foundUsersGroups.RemoveAll(g => g.Id == _myId);
-                }
-                else
-                {
-                    _showNoUserFound = true;
-                }
+            var response = await UserService.FetchAllUsersAsync(new Empty());
+            switch (response.Result.Status)
+            {
+                case Status.Ok:
+                    if (response.User.Count > 0)
+                    {
+                        _foundUsersGroups = response.User.ToList();
+                        _foundUsersGroups.RemoveAll(g => g.Id == _myId);
+                    }
+                    else
+                    {
+                        _showNoUserFound = true;
+                    }
 
-                break;
-            case Status.Error:
-                _isError = true;
-                _errorTitle = "Errore del backend";
-                _errorMessage = response.Result.Error;
-                break;
-            case Status.MissingParameters:
-                _isError = true;
-                _errorTitle = "Parametri mancanti";
-                _errorMessage = "la richiesta inviata è incompleta";
-                break;
-            case Status.AttachmentTooBig:
-                _isError = true;
-                _errorTitle = "Messaggio troppo pesante";
-                _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
-                break;
-            case Status.InvalidParameter:
-                _isError = true;
-                _errorTitle = "Parametri invalidi";
-                _errorMessage = "la richiesta inviata contiene parametri invalidi";
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+                    break;
+                case Status.Error:
+                    _isError = true;
+                    _errorTitle = "Errore del backend";
+                    _errorMessage = response.Result.Error;
+                    break;
+                case Status.MissingParameters:
+                    _isError = true;
+                    _errorTitle = "Parametri mancanti";
+                    _errorMessage = "la richiesta inviata è incompleta";
+                    break;
+                case Status.AttachmentTooBig:
+                    _isError = true;
+                    _errorTitle = "Messaggio troppo pesante";
+                    _errorMessage = "il messaggio inviato supera la dimensione massima consentita";
+                    break;
+                case Status.InvalidParameter:
+                    _isError = true;
+                    _errorTitle = "Parametri invalidi";
+                    _errorMessage = "la richiesta inviata contiene parametri invalidi";
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
         }
     }
 
     private async Task CreateChat(string userId)
     {
-        var response = await ConversationServices.CreateChatAsync(new StringMessage
+        try
         {
-            Value = userId
-        });
+            var response = await ConversationServices.CreateChatAsync(new StringMessage
+            {
+                Value = userId
+            });
 
-        switch (response.Result.Status)
+            switch (response.Result.Status)
+            {
+                case Status.Ok:
+                    _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
+                    await JsRuntime.InvokeVoidAsync("openDimmer", "#d2");
+                    await GetChatsGroupsAsync();
+                    break;
+                case Status.Error:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = response.Result.Error;
+                    break;
+                case Status.MissingParameters:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+                    break;
+                case Status.AttachmentTooBig:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta era troppo pesante";
+                    break;
+                case Status.InvalidParameter:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta contiene dei parametri non validi";
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch (RpcException e)
         {
-            case Status.Ok:
-                _foundUsers.Remove(_foundUsers.Find(u => u.Id == userId)!);
-                await JsRuntime.InvokeVoidAsync("openDimmer", "#d2");
-                await GetChatsGroupsAsync();
-                break;
-            case Status.Error:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = response.Result.Error;
-                break;
-            case Status.MissingParameters:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
-                break;
-            case Status.AttachmentTooBig:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta era troppo pesante";
-                break;
-            case Status.InvalidParameter:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta contiene dei parametri non validi";
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
         }
     }
 
@@ -452,86 +479,104 @@ else
     private async Task CreateGroup()
     {
         _selectedUsersGroup.Add(_myId);
-        var response = await ConversationServices.CreateGroupAsync(new GroupCreationRequest
+        try
         {
-            Admins = { _myId },
-            Members = { _selectedUsersGroup },
-            Name = _groupName.groupName
-        });
+            var response = await ConversationServices.CreateGroupAsync(new GroupCreationRequest
+            {
+                Admins = { _myId },
+                Members = { _selectedUsersGroup },
+                Name = _groupName.groupName
+            });
 
-        switch (response.Result.Status)
-        {
-            case Status.Ok:
-                await JsRuntime.InvokeVoidAsync("openDimmer", "#d3");
-                await GetChatsGroupsAsync();
-                break;
-            case Status.Error:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = response.Result.Error;
-                break;
-            case Status.MissingParameters:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
-                break;
-            case Status.AttachmentTooBig:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta era troppo pesante";
-                break;
-            case Status.InvalidParameter:
-                _isError = true;
-                _errorTitle = "Impossibile creare la chat";
-                _errorMessage = "La richiesta contiene dei parametri non validi";
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            switch (response.Result.Status)
+            {
+                case Status.Ok:
+                    await JsRuntime.InvokeVoidAsync("openDimmer", "#d3");
+                    await GetChatsGroupsAsync();
+                    break;
+                case Status.Error:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = response.Result.Error;
+                    break;
+                case Status.MissingParameters:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta non contiene tutti i parametri richiesti";
+                    break;
+                case Status.AttachmentTooBig:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta era troppo pesante";
+                    break;
+                case Status.InvalidParameter:
+                    _isError = true;
+                    _errorTitle = "Impossibile creare la chat";
+                    _errorMessage = "La richiesta contiene dei parametri non validi";
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            await ClearCheck();
         }
-
-        await ClearCheck();
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
+        }
     }
 
     private async Task GetChatsGroupsAsync()
     {
-        var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
-        switch (response.Result.Status)
+        try
         {
-            case Status.Ok:
-                _foundChats = response.Chats.ToArray();
-                for (var i = 0; i < _foundChats.Length; i++)
-                {
-                    _currentChatNames.Add(await GetNameOfChat(_foundChats[i].Members));
-                }
-                break;
-            case Status.Error:
-                break;
-            case Status.MissingParameters:
-                break;
-            case Status.AttachmentTooBig:
-                break;
-            case Status.InvalidParameter:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+            var response = await ConversationServices.GetAllUserOwnChatsAsync(new Empty());
+            switch (response.Result.Status)
+            {
+                case Status.Ok:
+                    _foundChats = response.Chats.ToArray();
+                    for (var i = 0; i < _foundChats.Length; i++)
+                    {
+                        _currentChatNames.Add(await GetNameOfChat(_foundChats[i].Members));
+                    }
+                    break;
+                case Status.Error:
+                    break;
+                case Status.MissingParameters:
+                    break;
+                case Status.AttachmentTooBig:
+                    break;
+                case Status.InvalidParameter:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
 
-        var responseGroups = await ConversationServices.GetAllUserGroupsAsync(new Empty());
-        switch (responseGroups.Result.Status)
+            var responseGroups = await ConversationServices.GetAllUserGroupsAsync(new Empty());
+            switch (responseGroups.Result.Status)
+            {
+                case Status.Ok:
+                    _foundGroups = responseGroups.Groups.ToArray();
+                    break;
+                case Status.Error:
+                    break;
+                case Status.MissingParameters:
+                    break;
+                case Status.AttachmentTooBig:
+                    break;
+                case Status.InvalidParameter:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+        catch (RpcException e)
         {
-            case Status.Ok:
-                _foundGroups = responseGroups.Groups.ToArray();
-                break;
-            case Status.Error:
-                break;
-            case Status.MissingParameters:
-                break;
-            case Status.AttachmentTooBig:
-                break;
-            case Status.InvalidParameter:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
         }
     }
 
@@ -668,9 +713,11 @@ else
                     });
                 }
             }
-            catch (Exception)
+            catch (RpcException e)
             {
-                // ignored
+                _isError = true;
+                _errorTitle = "Errore: " + e.StatusCode;
+                _errorMessage = e.Message;
             }
         }
         _messageModel.message = null;
@@ -678,51 +725,79 @@ else
 
     private async Task SetCurrentChat(int chatIndex)
     {
-        var chatId = _foundChats[chatIndex].Id;
-        if (!_chats.ContainsKey(chatId))
+        try
         {
-            var response = await ConversationServices.GetChatFromIdAsync(new StringMessage
+            var chatId = _foundChats[chatIndex].Id;
+            if (!_chats.ContainsKey(chatId))
             {
-                Value = chatId
-            }).ResponseAsync;
-            var chat = response.Chat;
-            var id = chat.Members[0] == _myId ? chat.Members[1] : chat.Members[0];
-            var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
-            {
-                Id = id
-            }).ResponseAsync;
-            var name = nameResponse.User.Username;
-            _chats.Add(chat.Id, (name, chat.Messages.Reverse().ToList()));
-        }
+                var response = await ConversationServices.GetChatFromIdAsync(new StringMessage
+                {
+                    Value = chatId
+                }).ResponseAsync;
+                var chat = response.Chat;
+                var id = chat.Members[0] == _myId ? chat.Members[1] : chat.Members[0];
+                var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+                {
+                    Id = id
+                }).ResponseAsync;
+                var name = nameResponse.User.Username;
+                _chats.Add(chat.Id, (name, chat.Messages.Reverse().ToList()));
+            }
 
-        _currentChat = chatId;
-        _currentGroup = "";
+            _currentChat = chatId;
+            _currentGroup = "";
+        }
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
+        }
     }
 
     private async Task SetCurrentGroup(int chatIndex)
     {
-        var groupId = _foundGroups[chatIndex].Id;
-        if (!_groups.ContainsKey(groupId))
+        try
         {
-            var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
+            var groupId = _foundGroups[chatIndex].Id;
+            if (!_groups.ContainsKey(groupId))
             {
-                Value = groupId
-            }).ResponseAsync;
-            var group = response.Group;
-            _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
-        }
+                var response = await ConversationServices.GetUserGroupFromIdAsync(new StringMessage
+                {
+                    Value = groupId
+                }).ResponseAsync;
+                var group = response.Group;
+                _groups.Add(group.Id, (group.Name, group.Messages.Reverse().ToList()));
+            }
 
-        _currentChat = "";
-        _currentGroup = groupId;
+            _currentChat = "";
+            _currentGroup = groupId;
+        }
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
+        }
     }
 
     private async Task<string> GetNameOfChat(IReadOnlyList<string> users)
     {
-        var id = users[0] == _myId ? users[1] : users[0];
-        var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+        try
         {
-            Id = id
-        });
-        return ($"{nameResponse.User.Name} {nameResponse.User.Surname}");
+            var id = users[0] == _myId ? users[1] : users[0];
+            var nameResponse = await UserService.FetchUserAsync(new GrpcUserFetch
+            {
+                Id = id
+            });
+            return ($"{nameResponse.User.Name} {nameResponse.User.Surname}");
+        }
+        catch (RpcException e)
+        {
+            _isError = true;
+            _errorTitle = "Errore: " + e.StatusCode;
+            _errorMessage = e.Message;
+            throw;
+        }
     }
 }
