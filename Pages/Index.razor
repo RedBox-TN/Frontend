@@ -9,7 +9,9 @@
 @using Google.Protobuf.WellKnownTypes
 @using Frontend.Client_Utility
 @using System.Text
+@using Frontend.Token_Utility
 @inject ClientUtility ClientUtility
+@inject TokenUtility TokenUtility
 @inject GrpcAccountServices.GrpcAccountServicesClient UserService
 @inject GrpcConversationServices.GrpcConversationServicesClient ConversationServices
 @inject NavigationManager NavigationManager
@@ -62,9 +64,9 @@
         </a>
         <div class="right menu">
             <div class="item">
-                <div class="ui transparent icon input">
-                    <input type="text" placeholder="Search users...">
-                    <i class="search link icon"></i>
+                <div class="ui icon red button" @onclick="Logout">
+                    <i class="sign out alternate icon"></i>
+                    Logout
                 </div>
             </div>
         </div>
@@ -191,13 +193,15 @@
                     <i class="check circle icon"></i>
                     La chat è stata creata
                 </h2>
+                <div>
+                    Clicca lo schermo per uscire
+                </div>
             </div>
         </div>
     </div>
     <div class="ui bottom attached tab" data-tab="d3">
         <EditForm id="checkBoxGroup" class="ui form" Model="@_groupName" OnValidSubmit="@CreateGroup">
             <DataAnnotationsValidator/>
-            <InputText @bind-Value="_groupName.groupName" placeholder="Nome del Gruppo"/>
             <div class="grouped fields">
                 @foreach (var u in _foundUsersGroups)
                 {
@@ -215,14 +219,22 @@
                     </div>
                 }
             </div>
+            <div class="ui input">
+                <InputText @bind-Value="_groupName.groupName" placeholder="Nome del Gruppo"/>
+            </div>
+            <br/>
+            <br/>
             <button class="@_buttonClass" type="submit">Crea</button>
             <button class="ui button" @onclick="ClearCheck">Reset</button>
             <div id="d3" class="ui page dimmer">
                 <div class="ui content">
                     <h2 class="ui inverted icon header">
                         <i class="check circle icon"></i>
-                        Il gruppo ... è stato creato
+                        Il gruppo è stato creato
                     </h2>
+                    <div>
+                        Clicca lo schermo per uscire
+                    </div>
                 </div>
             </div>
         </EditForm>
@@ -290,6 +302,12 @@ else
         await JsRuntime.InvokeVoidAsync("clearCheck");
         _selectedUsersGroup.Clear();
         _buttonClass = "ui disabled red button";
+    }
+
+    private async Task Logout()
+    {
+        TokenUtility.ClearToken();
+        NavigationManager.NavigateTo("/Login");
     }
 
     private async Task FetchUsers()
@@ -584,9 +602,9 @@ else
                 }
             }
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            //Ignored
+            //Ignore
         }
     }
 

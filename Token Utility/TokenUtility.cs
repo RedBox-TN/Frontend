@@ -31,7 +31,7 @@ public class TokenUtility
 		}, _tokenTaskCancel.Token), _tokenTaskCancel.Token);
 	}
 
-	private async Task RefreshTokenTask(TokenRefreshResponse token, CancellationToken ct = default)
+	private async Task RefreshTokenTask(TokenRefreshResponse token, CancellationToken ct)
 	{
 		while (!ct.IsCancellationRequested)
 		{
@@ -43,14 +43,12 @@ public class TokenUtility
 			}
 			catch (TaskCanceledException)
 			{
+				
 			}
 
 			token = _apiAuth.RefreshToken(new Empty(), cancellationToken: ct);
 			_channelUtility.SetAuthToken(token.Token);
 		}
-
-		_channelUtility.UnsetAuthToken();
-		_syncSessionStorage.Clear();
 	}
 
 	public Task RefreshToken(TokenRefreshResponse token)
@@ -64,8 +62,8 @@ public class TokenUtility
 	{
 		if (_tokenTask == null) return;
 		_tokenTaskCancel.Cancel();
-		while (_tokenTask.IsCanceled)
-		{
-		}
+		_tokenTask = null;
+		_channelUtility.UnsetAuthToken();
+		_syncSessionStorage.Clear();
 	}
 }

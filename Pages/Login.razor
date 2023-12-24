@@ -107,6 +107,8 @@ else
     {
         if (!await ClientUtility.IsServerOn())
             NavigationManager.NavigateTo("/Error");
+        if (await ClientUtility.IsLoggedIn())
+            NavigationManager.NavigateTo("/");
         _isLoaded = true;
     }
 
@@ -117,7 +119,7 @@ else
         await JsRuntime.InvokeVoidAsync("tabMenu");
     }
 
-    public void ShowPassword()
+    private void ShowPassword()
     {
         if (_txtType == "password")
         {
